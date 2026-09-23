@@ -10,7 +10,10 @@ import csv
 import datetime as dt
 import json
 import math
+import io
 import pathlib
+
+from storage import atomic_write
 
 
 def export(input_dir: pathlib.Path, output: pathlib.Path) -> int:
@@ -69,11 +72,12 @@ def export(input_dir: pathlib.Path, output: pathlib.Path) -> int:
         missing = sorted(set(expected) - set(latest))
         raise ValueError(f"February coverage incomplete; missing {len(missing)} hours")
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", newline="") as stream:
+    with io.StringIO(newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(latest[expected[0]][1]),
                                 lineterminator="\n")
         writer.writeheader()
         writer.writerows(latest[moment][1] for moment in expected)
+        atomic_write(output, stream.getvalue())
     return len(expected)
 
 

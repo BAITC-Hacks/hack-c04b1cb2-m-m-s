@@ -10,15 +10,15 @@ import datetime as dt
 import hashlib
 import json
 import math
-import os
 import pathlib
 import sys
-import tempfile
 import time
 import urllib.error
 
 from forecast_weather import LOCATIONS, retrieve, run_for, validate_result
 from run_forecast import LATEST_TRAINING_DATE, combine
+from power_model import validate_model
+from storage import atomic_write
 
 
 def canonical_digest(value: object) -> str:
@@ -27,27 +27,12 @@ def canonical_digest(value: object) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
-def atomic_write(path: pathlib.Path, contents: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent,
-                                         prefix=f".{path.name}.", delete=False) as stream:
-            temporary = pathlib.Path(stream.name)
-            stream.write(contents)
-        os.replace(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-
-
 def run_cycle(day: dt.date, model_path: pathlib.Path, cache_dir: pathlib.Path,
               output_dir: pathlib.Path) -> bool:
     """Return True when a validated forecast was saved, False when unchanged."""
     cutoff = min(day - dt.timedelta(days=1), LATEST_TRAINING_DATE)
     model = json.loads(model_path.read_text(encoding="utf-8"))
-    if dt.date.fromisoformat(model["trained_through_inclusive"]) > cutoff:
-        raise ValueError(f"model contains future measurements for {day}")
+    validate_model(model, cutoff)
 
     decision, run = run_for(day)
     weather = {}

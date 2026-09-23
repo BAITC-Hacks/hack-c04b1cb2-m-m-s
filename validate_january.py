@@ -15,7 +15,7 @@ import math
 import pathlib
 import statistics
 
-from power_model import FIELDS, parse_row, predict
+from power_model import FIELDS, parse_row, predict, validate_model
 
 
 def actual_hours(path: pathlib.Path, first: dt.date, last: dt.date) -> dict[dt.datetime, float]:
@@ -34,11 +34,11 @@ def actual_hours(path: pathlib.Path, first: dt.date, last: dt.date) -> dict[dt.d
 
 def predicted_hours(model: dict, weather_dir: pathlib.Path, turbine: str,
                     first: dt.date, last: dt.date) -> dict[dt.datetime, float]:
+    validate_model(model, first - dt.timedelta(days=1))
     result: dict[dt.datetime, tuple[dt.datetime, float]] = {}
-    # Hours before the first day's 06:00 UTC decision may already have a
-    # forecast from the preceding day's 48-hour horizon.
-    preceding = first - dt.timedelta(days=1)
-    day = preceding if (weather_dir / f"{preceding}-{turbine}.json").exists() else first
+    # Start both baseline and calibrated comparisons with the first evaluation
+    # decision. A calibration ending yesterday was unavailable at yesterday's run.
+    day = first
     while day <= last:
         path = weather_dir / f"{day}-{turbine}.json"
         payload = predict(model, json.loads(path.read_text()))
@@ -62,8 +62,12 @@ def main() -> None:
                         help="hypothetical CSV local time minus UTC, in whole hours")
     args = parser.parse_args()
     model = json.loads(args.model.read_text())
-    if dt.date.fromisoformat(model["trained_through_inclusive"]) >= args.first:
-        parser.error("training cutoff overlaps validation period")
+    if args.first > args.last:
+        parser.error("validation start must precede its end")
+    try:
+        validate_model(model, args.first - dt.timedelta(days=1))
+    except (ValueError, KeyError, TypeError) as exc:
+        parser.error(str(exc))
     report = {"model_cutoff": model["trained_through_inclusive"],
               "validation_dates": [str(args.first), str(args.last)], "turbines": {}}
     for turbine in ("turbine-1", "turbine-2"):

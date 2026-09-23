@@ -13,8 +13,9 @@ import json
 import pathlib
 import statistics
 
-from power_model import curve_value
+from power_model import curve_value, validate_model
 from validate_january import actual_hours
+from storage import atomic_write
 
 SCALES = tuple(round(0.8 + 0.05 * i, 2) for i in range(11))
 
@@ -44,8 +45,7 @@ def calibrate(model: dict, input_dir: pathlib.Path, weather_dir: pathlib.Path,
               first: dt.date, last: dt.date, offset_hours: int) -> dict:
     if first > last:
         raise ValueError("calibration start must precede its end")
-    if dt.date.fromisoformat(model["trained_through_inclusive"]) >= first:
-        raise ValueError("power model must be trained before calibration period")
+    validate_model(model, first - dt.timedelta(days=1))
     result = json.loads(json.dumps(model))
     for turbine in ("turbine-1", "turbine-2"):
         actual = actual_hours(input_dir / f"{turbine}.csv", first, last)
@@ -100,7 +100,7 @@ def main() -> None:
             }
         calibrated = target
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(calibrated, ensure_ascii=False, indent=2) + "\n")
+    atomic_write(args.output, json.dumps(calibrated, ensure_ascii=False, indent=2) + "\n")
     for turbine, payload in calibrated["turbines"].items():
         print(f"{turbine}: scale={payload['forecast_wind_scale']}, "
               f"hours={payload['forecast_wind_calibration']['matched_hours']}")

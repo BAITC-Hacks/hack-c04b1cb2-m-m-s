@@ -25,6 +25,8 @@ import math
 import pathlib
 import sys
 
+from storage import atomic_write
+
 FIELDS = {
     "time": "Статистическое время",
     "wind": "Средняя скорость ветра(m/s)",
@@ -143,7 +145,48 @@ def curve_value(curve: dict, wind: float) -> float:
     return round(values[lo] * (1 - (position - lo)) + values[hi] * (position - lo), 6)
 
 
+def validate_model(model: dict, latest_data_date: dt.date) -> None:
+    """Check the artifact and all target-data dates before historical use."""
+    if (not isinstance(model, dict) or model.get("model_version") != 1
+            or model.get("model_type") != "gaussian_smoothed_empirical_wind_power_curve"):
+        raise ValueError("unsupported power model format")
+    trained = dt.date.fromisoformat(model["trained_through_inclusive"])
+    if trained > latest_data_date:
+        raise ValueError("model contains future measurements")
+    for name in ("turbine-1", "turbine-2"):
+        turbine = model["turbines"][name]
+        curve = turbine["curve"]
+        width, maximum, values = curve["bin_width_ms"], curve["max_wind_ms"], curve["values"]
+        if (type(width) not in (int, float) or not math.isfinite(width) or width <= 0
+                or type(maximum) not in (int, float) or not math.isfinite(maximum) or maximum <= 0
+                or not math.isfinite(maximum / width)
+                or not isinstance(values, list) or len(values) != int(maximum / width) + 1
+                or any(type(value) not in (int, float) or not math.isfinite(value)
+                       or not 0 <= value <= 1 for value in values)):
+            raise ValueError(f"invalid or truncated power curve: {name}")
+        scale = turbine.get("forecast_wind_scale", 1.0)
+        if type(scale) not in (int, float) or not math.isfinite(scale) or not 0.5 <= scale <= 1.5:
+            raise ValueError(f"invalid forecast wind calibration: {name}")
+        calibration = turbine.get("forecast_wind_calibration")
+        if calibration is None:
+            if scale != 1.0:
+                raise ValueError(f"wind calibration provenance is missing: {name}")
+            continue
+        period = calibration.get("period") if isinstance(calibration, dict) else None
+        if not isinstance(period, list) or len(period) != 2:
+            raise ValueError(f"invalid wind calibration period: {name}")
+        first, last = (dt.date.fromisoformat(value) for value in period)
+        source_cutoff = dt.date.fromisoformat(calibration.get(
+            "calibration_source_model_cutoff", model["trained_through_inclusive"]))
+        if not source_cutoff < first <= last <= latest_data_date:
+            raise ValueError(f"wind calibration overlaps future data or source training: {name}")
+
+
 def predict(model: dict, weather: dict) -> dict:
+    decision = dt.datetime.fromisoformat(weather["decision_time_utc"].replace("Z", "+00:00"))
+    if decision.tzinfo is None or decision.utcoffset() != dt.timedelta(0):
+        raise ValueError("weather decision time must specify UTC")
+    validate_model(model, decision.date() - dt.timedelta(days=1))
     turbine = weather.get("turbine")
     if turbine not in model["turbines"]:
         raise ValueError(f"weather turbine not in model: {turbine}")
@@ -153,15 +196,7 @@ def predict(model: dict, weather: dict) -> dict:
     if not isinstance(rows, list) or len(rows) not in (24, 48):
         raise ValueError("weather forecast must contain 24 or 48 hourly records")
     curve = model["turbines"][turbine]["curve"]
-    width, values = curve["bin_width_ms"], curve["values"]
-    if (not isinstance(width, (int, float)) or not math.isfinite(width) or width <= 0
-            or not isinstance(values, list) or not values
-            or any(not isinstance(value, (int, float)) or not math.isfinite(value)
-                   or not 0 <= value <= 1 for value in values)):
-        raise ValueError(f"invalid power curve: {turbine}")
     wind_scale = model["turbines"][turbine].get("forecast_wind_scale", 1.0)
-    if not math.isfinite(wind_scale) or not 0.5 <= wind_scale <= 1.5:
-        raise ValueError("invalid forecast wind calibration")
     result = []
     previous = None
     for row in rows:
@@ -208,7 +243,7 @@ def main() -> int:
         serialized = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
         if output:
             output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(serialized)
+            atomic_write(output, serialized)
             print(f"saved {output}")
         else:
             print(serialized, end="")

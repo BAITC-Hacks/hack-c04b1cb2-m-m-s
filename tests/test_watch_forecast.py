@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import http.client
 import io
 import json
 import pathlib
@@ -55,7 +56,7 @@ class WatchForecastTests(unittest.TestCase):
                 self.assertTrue(watch_forecast.run_cycle(DAY, model_path, root / "cache", output))
                 good = path.read_bytes()
                 self.assertNotEqual(before, good)
-                for invalid in ([], [-0.1, 0.5], [float("nan")]):
+                for invalid in ([], [0.5], [-0.1, 0.5], [float("nan")]):
                     model["turbines"]["turbine-1"]["curve"]["values"] = invalid
                     model_path.write_text(json.dumps(model))
                     self.assertEqual(watch_forecast.watch(DAY, model_path, root / "cache", output, 1, 1), 1)
@@ -64,6 +65,68 @@ class WatchForecastTests(unittest.TestCase):
                 model_path.write_text(json.dumps(model))
                 self.assertEqual(watch_forecast.watch(DAY, model_path, root / "cache", output, 1, 1), 1)
                 self.assertEqual(good, path.read_bytes())
+
+    def test_truncated_http_body_retries_and_preserves_last_result(self) -> None:
+        class TruncatedResponse(io.BytesIO):
+            def read(self, *args, **kwargs):
+                raise http.client.IncompleteRead(b'{"hourly":', 200)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            output = root / "output"
+            path = output / "2026-02-01-forecast.json"
+            attempts = 0
+            snapshots = []
+
+            def response(_url, timeout):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 3:
+                    return TruncatedResponse()
+                data = weather("turbine-1", 8 if attempts < 3 else 12)
+                body = {"hourly_units": data["units"], "hourly": {
+                    "time": [row["time_utc"] for row in data["forecast"]],
+                    **{key: [row[key] for row in data["forecast"]]
+                       for key in forecast_weather.VARIABLES}}}
+                return io.BytesIO(json.dumps(body).encode())
+
+            with mock.patch.object(forecast_weather.urllib.request, "urlopen", side_effect=response), \
+                    mock.patch.object(watch_forecast.time, "sleep",
+                                      side_effect=lambda _: snapshots.append(path.read_bytes())):
+                self.assertEqual(watch_forecast.watch(DAY, MODEL, root / "cache", output, 1, 3), 0)
+            self.assertEqual(attempts, 5)
+            self.assertEqual(snapshots[0], snapshots[1])
+            self.assertNotEqual(snapshots[1], path.read_bytes())
+            self.assertEqual(len(json.loads(path.read_text())["forecast"]), 48)
+
+    def test_future_calibration_never_replaces_forecast(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            model_path = root / "model.json"
+            output = root / "output"
+            model_path.write_bytes(MODEL.read_bytes())
+            with mock.patch.object(watch_forecast, "retrieve", side_effect=lambda day, turbine, cache,
+                                                                            refresh: weather(turbine)):
+                watch_forecast.run_cycle(DAY, model_path, root / "cache", output)
+            path = output / "2026-02-01-forecast.json"
+            before = path.read_bytes()
+            state_path = output / "2026-02-01-watch-state.json"
+            state_before = state_path.read_bytes()
+            cases = [
+                {"period": ["2026-02-01", "2026-02-14"]},
+                {"calibration_source_model_cutoff": "2026-02-01"},
+                {"period": ["2026-01-14", "2026-01-01"]},
+            ]
+            for changes in cases:
+                with self.subTest(changes=changes):
+                    model = json.loads(MODEL.read_text())
+                    model["turbines"]["turbine-1"]["forecast_wind_calibration"].update(changes)
+                    model_path.write_text(json.dumps(model))
+                    with mock.patch.object(watch_forecast, "retrieve") as fetch:
+                        self.assertEqual(watch_forecast.watch(DAY, model_path, root / "cache", output, 1, 1), 1)
+                        fetch.assert_not_called()
+                    self.assertEqual(path.read_bytes(), before)
+                    self.assertEqual(state_path.read_bytes(), state_before)
 
     def test_refresh_keeps_identical_weather_cache(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

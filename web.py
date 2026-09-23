@@ -12,7 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from forecast_weather import LOCATIONS, retrieve
 from run_forecast import combine
-from watch_forecast import atomic_write
+from power_model import validate_model
+from storage import atomic_write
 
 ROOT = pathlib.Path(__file__).resolve().parent
 HTML = ROOT / "static" / "index.html"
@@ -73,8 +74,7 @@ class Handler(BaseHTTPRequestHandler):
             cutoff = min(day - dt.timedelta(days=1), dt.date(2026, 1, 31))
             model_path = MODELS / f"power-curve-{cutoff}.json"
             model = json.loads(model_path.read_text(encoding="utf-8"))
-            if dt.date.fromisoformat(model["trained_through_inclusive"]) > cutoff:
-                raise ValueError("модель содержит будущие измерения")
+            validate_model(model, cutoff)
             weather = {name: retrieve(day, name, CACHE, refresh=True) for name in LOCATIONS}
             output = combine(day, model, weather)
             RECALCULATED.mkdir(exist_ok=True)

@@ -3,15 +3,16 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import http.client
 import json
 import math
-import os
 import pathlib
 import sys
-import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from storage import atomic_write
 
 UTC = dt.timezone.utc
 LOCATIONS = {
@@ -83,8 +84,11 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
         saved = json.loads(path.read_text())
         validate_result(saved, day, turbine, url, decision, run)
         return saved
-    with urllib.request.urlopen(url, timeout=30) as response:
-        body = json.load(response)
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            body = json.load(response)
+    except http.client.HTTPException as exc:
+        raise RuntimeError(f"incomplete or invalid weather HTTP response: {exc}") from exc
     if not isinstance(body, dict):
         raise ValueError("weather API response is not an object")
     if body.get("error"):
@@ -126,16 +130,7 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
                 return result
         except (OSError, ValueError):
             pass  # A damaged cache is replaced only after fresh data validates.
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=cache_dir,
-                                         prefix=f".{path.name}.", delete=False) as stream:
-            temporary = pathlib.Path(stream.name)
-            stream.write(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
-        os.replace(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+    atomic_write(path, json.dumps(result, ensure_ascii=False, indent=2) + "\n")
     return result
 
 

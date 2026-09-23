@@ -16,7 +16,8 @@ import sys
 import urllib.error
 
 from forecast_weather import LOCATIONS, retrieve
-from power_model import predict, train
+from power_model import predict, train, validate_model
+from storage import atomic_write
 
 LATEST_TRAINING_DATE = dt.date(2026, 1, 31)
 
@@ -102,20 +103,19 @@ def main() -> int:
             if cutoff not in models:
                 if args.input_dir:
                     models[cutoff] = train(args.input_dir, cutoff)
-                    (args.output_dir / f"power-model-{cutoff}.json").write_text(
+                    atomic_write(args.output_dir / f"power-model-{cutoff}.json",
                         json.dumps(models[cutoff], ensure_ascii=False, indent=2) + "\n")
                 else:
                     path = (args.model_dir / f"power-curve-{cutoff}.json"
                             if args.model_dir else args.model)
                     models[cutoff] = json.loads(path.read_text())
-                if dt.date.fromisoformat(models[cutoff]["trained_through_inclusive"]) > cutoff:
-                    raise ValueError(f"model contains future measurements for {day}")
+                validate_model(models[cutoff], cutoff)
             weather = {turbine: retrieve(day, turbine, args.cache_dir,
                                          refresh=args.refresh_weather)
                        for turbine in LOCATIONS}
             output = combine(day, models[cutoff], weather)
             path = args.output_dir / f"{day.isoformat()}-forecast.json"
-            path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n")
+            atomic_write(path, json.dumps(output, ensure_ascii=False, indent=2) + "\n")
             print(f"{day}: 48 hours; mean normalized power "
                   f"{output['analysis']['mean_normalized_power']:.3f}; saved {path}")
     except (OSError, ValueError, RuntimeError, KeyError, TypeError, urllib.error.URLError) as exc:
