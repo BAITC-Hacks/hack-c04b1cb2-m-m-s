@@ -1,6 +1,6 @@
 name = "admission_reviewer"
 description = "Пробная независимая проверка репозитория ВЭС по ТЗ и правилам приёма: запуск, сценарий, история, источники и подача."
-model = "gpt-6-sol"
+model = "gpt-6-astra"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = """
