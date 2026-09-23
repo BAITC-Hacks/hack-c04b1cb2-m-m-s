@@ -1,0 +1,8 @@
+# Subagent defaults only; choose the main agent in the Codex UI.
+
+[agents]
+enabled = true
+# Excludes the main agent. Close completed subagent threads before opening more.
+max_concurrent_threads_per_session = 2
+default_subagent_model = "gpt-6-luna"
+default_subagent_reasoning_effort = "low"
