@@ -322,17 +322,19 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="IPv4 bind address (default: 127.0.0.1; use the host's bridge address for a Docker proxy)")
     parser.add_argument("--port", type=int, default=8000,
                         help="local port (default: 8000; 0 selects a free port)")
     args = parser.parse_args()
     if not 0 <= args.port <= 65535:
         parser.error("--port must be between 0 and 65535")
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+        server = ThreadingHTTPServer((args.host, args.port), Handler)
     except OSError as exc:
         parser.exit(1, f"Не удалось запустить сервер: {exc}. "
-                       "Выберите свободный порт: python3 web.py --port 8001\n")
-    print(f"Wind forecast dashboard: http://127.0.0.1:{server.server_port}/", flush=True)
+                       "Проверьте адрес --host и выберите свободный --port.\n")
+    print(f"Wind forecast dashboard: http://{server.server_address[0]}:{server.server_port}/", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
