@@ -30,6 +30,15 @@
     button:disabled { opacity: .6; cursor: wait; }
     .status { margin: 16px 0 0; min-height: 24px; }
     .status.error { color: #ffad9e; }
+    .agent-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .agent-actions .note { margin: 0; }
+    .agent-journal { margin: 0; padding-left: 26px; display: grid; gap: 9px; }
+    .agent-journal li { padding-left: 5px; line-height: 1.45; }
+    .agent-journal li.error { color: #ffad9e; }
+    .agent-journal small { color: #aac0d6; }
+    .agent-journal details { margin-top: 5px; }
+    .agent-journal pre { max-height: 180px; overflow: auto; padding: 10px; border-radius: 8px; background: #0d1b2c; color: #c7d8e9; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .agent-summary { margin-bottom: 0; color: #e9f1fa; white-space: pre-wrap; }
     .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
     .chip { border: 1px solid #36516a; border-radius: 999px; padding: 8px 12px; color: #c7d8e9; font-size: 13px; }
     .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -68,10 +77,18 @@
       <label>Дата расчёта (UTC)<input id="date" type="date" min="2026-01-31" max="2026-02-28" value="2026-02-01" required></label>
       <button id="run" type="button">Опубликованный прогноз</button>
       <button id="refresh" type="button" class="secondary">Пересчитать из архива</button>
+      <button id="agent-run" type="button" disabled>Запустить AI-агента</button>
       <a class="download" href="/download/february-hourly.csv" download="february-hourly.csv">Скачать весь февраль CSV</a>
     </div>
     <p id="status" class="status" role="status" aria-live="polite">Открываем сохранённый прогноз…</p>
     <p class="note">Обычный просмотр и CSV открывают опубликованный снимок. «Пересчитать» получает архив заново. Результаты фонового наблюдения сохраняются отдельно и здесь автоматически не подменяются.</p>
+    <div class="agent-actions"><button id="agent-example" type="button" class="secondary" hidden>Запись запуска 1 февраля</button><p id="agent-config" class="note" role="status">Проверяем доступность AI-агента…</p></div>
+    <p class="note">Агент выбирает инструменты и проверяет результат. Мощность рассчитывает численная модель.</p>
+  </section>
+  <section class="panel" id="agent-panel" hidden aria-live="polite">
+    <div class="section-heading"><h2>Журнал AI-агента</h2><p class="note" id="agent-caption"></p></div>
+    <ol class="agent-journal" id="agent-events"></ol>
+    <p id="agent-summary" class="agent-summary"></p>
   </section>
   <section class="panel" id="results" hidden>
     <div class="section-heading"><h2>Прогноз мощности</h2><p class="note" id="horizon"></p></div>
@@ -108,6 +125,179 @@
   const shortStamp = value => `${value.slice(8, 10)}.${value.slice(5, 7)} ${value.slice(11, 16)}`;
   let shownDate = null;
   let shownRows = null;
+  let busy = false;
+  let agentConfig = null;
+  const toolLabels = {
+    inspect_inputs: 'Проверка входов', get_weather: 'Загрузка погоды',
+    calculate_forecast: 'Расчёт прогноза', inspect_forecast: 'Проверка часов',
+    compare_published: 'Сравнение с опубликованным', publish_forecast: 'Сохранение прогноза'
+  };
+  function setBusy(value) {
+    busy = value;
+    $('run').disabled = value;
+    $('refresh').disabled = value;
+    $('date').disabled = value;
+    $('agent-run').disabled = value || !agentConfig?.available;
+    $('agent-example').disabled = value;
+    $('results').setAttribute('aria-busy', String(value));
+  }
+  function clearAgentReport() {
+    $('agent-panel').hidden = true;
+    $('agent-caption').textContent = '';
+    $('agent-summary').textContent = '';
+    $('agent-events').replaceChildren();
+  }
+  function showAgentEvents(events) {
+    const list = $('agent-events');
+    const fragment = document.createDocumentFragment();
+    for (const event of Array.isArray(events) ? events : []) {
+      const item = document.createElement('li');
+      if (event.status === 'error') item.classList.add('error');
+      const title = document.createElement('strong');
+      title.textContent = `${toolLabels[event.tool] || 'Инструмент'}: `;
+      const result = event.result || {};
+      let detail = event.detail || 'Выполнено.';
+      if (event.status === 'ok') {
+        if (event.tool === 'inspect_inputs') detail = `модель обучена по ${result.model_cutoff}; проверена доступность погодных входов.`;
+        if (event.tool === 'get_weather') detail = `${result.turbine === 'turbine-1' ? 'турбина 1' : 'турбина 2'}, ${result.hours} часов; ${result.refresh ? 'архив запрошен заново' : 'загружен допустимый архивный выпуск'}.`;
+        if (event.tool === 'calculate_forecast') detail = `${result.hours} часов; средняя мощность ${number(result.mean_normalized_power)}, наибольший скачок ${number(result.largest_hourly_ramp)}.`;
+        if (event.tool === 'inspect_forecast') detail = `исследован интервал из ${result.hours_inspected} часов вокруг выбранного события.`;
+        if (event.tool === 'compare_published') detail = result.baseline === 'available' ? `максимальное отклонение от опубликованного снимка ${number(result.max_absolute_hourly_delta)}.` : 'опубликованный снимок для сравнения отсутствует.';
+        if (event.tool === 'publish_forecast') detail = `${result.hours} проверенных часов сохранены.`;
+      }
+      item.append(title, document.createTextNode(String(detail)));
+      const extras = {};
+      if (event.arguments !== undefined) extras.arguments = event.arguments;
+      if (event.result !== undefined) extras.result = event.result;
+      if (Object.keys(extras).length) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = 'Аргументы и результат';
+        const pre = document.createElement('pre');
+        pre.textContent = JSON.stringify(extras, null, 2).slice(0, 4000);
+        details.append(summary, pre);
+        item.append(details);
+      }
+      fragment.append(item);
+    }
+    list.replaceChildren(fragment);
+  }
+  function showAgentReport(report, caption) {
+    $('agent-panel').hidden = false;
+    $('agent-caption').textContent = caption;
+    showAgentEvents(report.events);
+    $('agent-summary').textContent = report.summary || '';
+  }
+  async function readJSON(response) {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Ошибка HTTP ${response.status}`);
+    return data;
+  }
+  async function loadAgentConfig() {
+    try {
+      agentConfig = await readJSON(await fetch('/api/agent/config'));
+      $('agent-config').textContent = agentConfig.available
+        ? `AI-агент доступен · ${agentConfig.model || 'OpenAI'}`
+        : (agentConfig.reason || 'AI-агент сейчас недоступен.');
+      $('agent-example').hidden = !agentConfig.example_date;
+    } catch (error) {
+      $('agent-config').textContent = 'Не удалось проверить доступность AI-агента.';
+    } finally {
+      setBusy(busy);
+    }
+  }
+  function waitForPoll(signal) {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(new DOMException('Прервано', 'AbortError'));
+      const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, 1000);
+      function abort() { clearTimeout(timer); reject(new DOMException('Прервано', 'AbortError')); }
+      signal.addEventListener('abort', abort, {once: true});
+    });
+  }
+  async function runAgent() {
+    if (busy || !agentConfig?.available || !$('date').reportValidity()) return;
+    const date = $('date').value;
+    const keepResult = shownDate === date;
+    clearAgentReport();
+    $('agent-panel').hidden = false;
+    $('agent-caption').textContent = `Новый расчёт на ${date} · ${agentConfig.model || 'OpenAI'}`;
+    $('agent-summary').textContent = 'Агент готовит прогноз…';
+    $('status').classList.remove('error');
+    $('status').textContent = 'Запускаем AI-агента…';
+    $('results').hidden = !keepResult;
+    $('table-panel').hidden = !keepResult;
+    setBusy(true);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 8 * 60 * 1000);
+    try {
+      const started = await readJSON(await fetch('/api/agent', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date}), signal: controller.signal
+      }));
+      if (!started.job_id) throw new Error('Сервер не вернул идентификатор запуска.');
+      while (true) {
+        await waitForPoll(controller.signal);
+        const state = await readJSON(await fetch(`/api/agent/status?id=${encodeURIComponent(started.job_id)}`,
+                                                 {signal: controller.signal}));
+        if (state.date !== date || state.job_id !== started.job_id) throw new Error('Сервер вернул состояние другого запуска.');
+        showAgentReport(state, `Новый расчёт на ${date} · ${agentConfig.model || 'OpenAI'}`);
+        if (state.status === 'running') {
+          $('agent-summary').textContent = state.summary || 'Агент работает…';
+          $('status').textContent = `Агент работает: ${Array.isArray(state.events) ? state.events.length : 0} шагов.`;
+          continue;
+        }
+        if (state.status === 'completed') {
+          if (!state.forecast || state.forecast.forecast_date !== date) throw new Error('Готовый прогноз отсутствует или относится к другой дате.');
+          render(state.forecast);
+          $('status').textContent = `AI-расчёт на ${date}: 48 часов. Все времена — UTC.`;
+          break;
+        }
+        if (state.status === 'failed') {
+          $('status').textContent = `${state.summary || 'AI-расчёт завершился ошибкой.'}${keepResult ? ' Ниже сохранён предыдущий результат.' : ''}`;
+          $('status').classList.add('error');
+          break;
+        }
+        throw new Error('Неизвестное состояние запуска.');
+      }
+    } catch (error) {
+      const message = timedOut
+        ? 'Ожидание превысило 8 минут. Состояние запуска на сервере неизвестно; проверьте его позже.'
+        : (error.name === 'AbortError' ? 'Ожидание прервано; состояние запуска на сервере неизвестно.' : error.message);
+      $('status').textContent = `${message}${keepResult ? ' Ниже сохранён предыдущий результат.' : ''}`;
+      $('status').classList.add('error');
+      $('agent-summary').textContent = message;
+    } finally {
+      clearTimeout(timer);
+      setBusy(false);
+    }
+  }
+  async function loadAgentExample() {
+    if (busy || !agentConfig?.example_date) return;
+    clearAgentReport();
+    setBusy(true);
+    $('status').classList.remove('error');
+    $('status').textContent = 'Открываем запись реального запуска…';
+    try {
+      const report = await readJSON(await fetch('/api/agent/example'));
+      if (!report.recorded || !report.forecast || report.forecast.forecast_date !== agentConfig.example_date) {
+        throw new Error('Запись запуска неполная или относится к другой дате.');
+      }
+      $('date').value = agentConfig.example_date;
+      render(report.forecast);
+      const timestamp = report.recorded_at || report.timestamp;
+      const recordedTime = timestamp ? new Date(timestamp) : null;
+      const recordedLabel = recordedTime && Number.isFinite(recordedTime.getTime())
+        ? recordedTime.toLocaleString('ru-RU', {timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) + ' UTC' : '';
+      showAgentReport(report, `Запись реального запуска, не новый расчёт · ${report.model || agentConfig.model || 'OpenAI'}${recordedLabel ? ` · ${recordedLabel}` : ''}`);
+      $('status').textContent = `Открыта запись реального AI-запуска на ${agentConfig.example_date}. Все времена — UTC.`;
+    } catch (error) {
+      $('status').textContent = error.message;
+      $('status').classList.add('error');
+    } finally {
+      setBusy(false);
+    }
+  }
   function renderChart(rows) {
     const svg = $('chart');
     const width = Math.max(280, svg.clientWidth);
@@ -176,17 +366,15 @@
     $('table-panel').hidden = false;
   }
   async function loadForecast(refresh) {
-    if (!$('date').reportValidity()) return;
+    if (busy || !$('date').reportValidity()) return;
     const date = $('date').value;
+    clearAgentReport();
     const status = $('status');
     status.classList.remove('error');
     const keepResult = shownDate === date;
     $('results').hidden = !keepResult;
     $('table-panel').hidden = !keepResult;
-    $('results').setAttribute('aria-busy', 'true');
-    $('run').disabled = true;
-    $('refresh').disabled = true;
-    $('date').disabled = true;
+    setBusy(true);
     status.textContent = refresh ? 'Обновляем архив погоды и пересчитываем прогноз…' : 'Открываем сохранённый прогноз…';
     try {
       const response = await fetch(`/api/forecast?date=${encodeURIComponent(date)}&refresh=${refresh ? 1 : 0}`);
@@ -198,18 +386,27 @@
       status.textContent = `${error.message}${keepResult ? ' Ниже сохранён предыдущий результат; обновление не выполнено.' : ''}`;
       status.classList.add('error');
     } finally {
-      $('run').disabled = false;
-      $('refresh').disabled = false;
-      $('date').disabled = false;
-      $('results').setAttribute('aria-busy', 'false');
+      setBusy(false);
     }
   }
   $('run').addEventListener('click', () => loadForecast(false));
   $('refresh').addEventListener('click', () => loadForecast(true));
+  $('agent-run').addEventListener('click', runAgent);
+  $('agent-example').addEventListener('click', loadAgentExample);
+  $('date').addEventListener('change', () => {
+    clearAgentReport();
+    $('status').classList.remove('error');
+    $('status').textContent = 'Дата изменена. Откройте опубликованный прогноз или запустите новый расчёт.';
+    if (shownDate !== $('date').value) {
+      $('results').hidden = true;
+      $('table-panel').hidden = true;
+    }
+  });
   new ResizeObserver(() => {
     if (shownRows && !$('results').hidden) renderChart(shownRows);
   }).observe($('chart'));
   loadForecast(false);
+  loadAgentConfig();
 </script>
 </body>
 </html>

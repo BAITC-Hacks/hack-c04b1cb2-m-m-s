@@ -28,7 +28,7 @@ def canonical_digest(value: object) -> str:
 
 
 def run_cycle(day: dt.date, model_path: pathlib.Path, cache_dir: pathlib.Path,
-              output_dir: pathlib.Path) -> bool:
+              output_dir: pathlib.Path, *, agent_mode: bool = False) -> bool:
     """Return True when a validated forecast was saved, False when unchanged."""
     cutoff = min(day - dt.timedelta(days=1), LATEST_TRAINING_DATE)
     model = json.loads(model_path.read_text(encoding="utf-8"))
@@ -49,29 +49,41 @@ def run_cycle(day: dt.date, model_path: pathlib.Path, cache_dir: pathlib.Path,
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
             if (state.get("input_sha256") == input_digest
+                    and state.get("controller", "deterministic") == ("openai" if agent_mode else "deterministic")
                     and state.get("output_sha256") == hashlib.sha256(output_path.read_bytes()).hexdigest()):
                 return False
         except (OSError, ValueError, AttributeError):
             pass  # Missing or damaged state requires a complete recalculation.
 
-    output = combine(day, model, weather)
+    if agent_mode:
+        from forecast_agent import run_agent
+        report = run_agent(day, root=pathlib.Path(__file__).resolve().parent,
+                           model_path=model_path, cache_dir=cache_dir, output_dir=output_dir)
+        if report["status"] != "completed":
+            raise RuntimeError(report["summary"])
+        output = report["forecast"]
+        input_digest = report["input_sha256"]
+    else:
+        output = combine(day, model, weather)
     serialized = json.dumps(output, ensure_ascii=False, indent=2) + "\n"
     atomic_write(output_path, serialized)
     atomic_write(state_path, json.dumps({
         "input_sha256": input_digest,
         "output_sha256": hashlib.sha256(serialized.encode("utf-8")).hexdigest(),
+        "controller": "openai" if agent_mode else "deterministic",
     }, indent=2) + "\n")
     return True
 
 
 def watch(day: dt.date, model_path: pathlib.Path, cache_dir: pathlib.Path,
-          output_dir: pathlib.Path, interval: float, max_cycles: int | None = None) -> int:
+          output_dir: pathlib.Path, interval: float, max_cycles: int | None = None,
+          *, agent_mode: bool = False) -> int:
     last_failed = False
     cycle = 0
     while max_cycles is None or cycle < max_cycles:
         cycle += 1
         try:
-            changed = run_cycle(day, model_path, cache_dir, output_dir)
+            changed = run_cycle(day, model_path, cache_dir, output_dir, agent_mode=agent_mode)
             print(f"{day} cycle {cycle}: {'saved updated forecast' if changed else 'inputs unchanged'}",
                   flush=True)
             last_failed = False
@@ -98,6 +110,8 @@ def main() -> int:
     parser.add_argument("--output-dir", type=pathlib.Path, default=pathlib.Path("predictions"))
     parser.add_argument("--interval", type=float, default=300, help="seconds between checks (default: 300)")
     parser.add_argument("--max-cycles", type=int, help="stop after this many checks (for smoke runs)")
+    parser.add_argument("--agent", action="store_true",
+                        help="run the OpenAI tool-calling agent only when validated inputs change")
     args = parser.parse_args()
     if (not math.isfinite(args.interval) or args.interval <= 0
             or args.max_cycles is not None and args.max_cycles < 1):
@@ -105,9 +119,17 @@ def main() -> int:
     cutoff = min(args.date - dt.timedelta(days=1), LATEST_TRAINING_DATE)
     model_path = (args.model_dir / f"power-curve-{cutoff}.json"
                   if args.model_dir else args.model)
+    if args.agent:
+        from agent_settings import load_agent_environment
+        from forecast_agent import agent_available, FIRST_DAY, LAST_DAY
+        load_agent_environment(pathlib.Path(__file__).resolve().parent)
+        if not FIRST_DAY <= args.date <= LAST_DAY:
+            parser.error("--agent supports 2026-01-31 through 2026-02-28")
+        if not agent_available():
+            parser.error("--agent requires server-side OPENAI_API_KEY in environment or .env")
     try:
         return watch(args.date, model_path, args.cache_dir, args.output_dir,
-                     args.interval, args.max_cycles)
+                     args.interval, args.max_cycles, agent_mode=args.agent)
     except KeyboardInterrupt:
         print("watch stopped", file=sys.stderr)
         return 0

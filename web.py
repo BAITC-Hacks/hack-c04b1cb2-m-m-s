@@ -3,9 +3,15 @@ from __future__ import annotations
 
 import datetime as dt
 import argparse
+import collections
+import copy
 import json
+import os
 import pathlib
 import re
+import secrets
+import threading
+import time
 import urllib.error
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,6 +20,8 @@ from forecast_weather import LOCATIONS, retrieve
 from run_forecast import combine
 from power_model import validate_model
 from storage import atomic_write
+from agent_settings import load_agent_environment
+from forecast_agent import DEFAULT_MODEL, agent_available, run_agent
 
 ROOT = pathlib.Path(__file__).resolve().parent
 HTML = ROOT / "static" / "index.html"
@@ -22,6 +30,48 @@ MODELS = ROOT / "models"
 CACHE = ROOT / "weather-cache"
 RESULTS = ROOT / "results"
 RECALCULATED = ROOT / "predictions"
+DATE_PATTERN = r"2026-(?:01-31|02-(?:0[1-9]|1[0-9]|2[0-8]))"
+AGENT_LOCK = threading.Lock()
+AGENT_JOBS: dict[str, dict] = {}
+AGENT_STARTS: collections.deque[float] = collections.deque()
+
+
+def start_agent_job(day: dt.date) -> str:
+    """One live job and at most six starts/hour protect the public demo budget."""
+    load_agent_environment(ROOT)
+    if not agent_available():
+        raise ValueError("AI-агент не настроен на сервере; опубликованные прогнозы доступны.")
+    with AGENT_LOCK:
+        if any(job["status"] == "running" for job in AGENT_JOBS.values()):
+            raise RuntimeError("Агент уже выполняет расчёт. Дождитесь завершения и повторите запуск.")
+        now = time.monotonic()
+        while AGENT_STARTS and now - AGENT_STARTS[0] >= 3600:
+            AGENT_STARTS.popleft()
+        if len(AGENT_STARTS) >= 6:
+            raise RuntimeError("Достигнут лимит демо: 6 запусков агента в час. Сохранённые прогнозы доступны.")
+        job_id = secrets.token_urlsafe(18)
+        if len(AGENT_JOBS) >= 20:
+            del AGENT_JOBS[next(iter(AGENT_JOBS))]
+        AGENT_JOBS[job_id] = {"job_id": job_id, "date": day.isoformat(),
+                              "status": "running", "events": [], "summary": "", "forecast": None}
+        AGENT_STARTS.append(now)
+
+    def event_received(event: dict) -> None:
+        with AGENT_LOCK:
+            AGENT_JOBS[job_id]["events"].append(copy.deepcopy(event))
+
+    def work() -> None:
+        try:
+            report = run_agent(day, root=ROOT, on_event=event_received)
+            with AGENT_LOCK:
+                AGENT_JOBS[job_id].update(report)
+        except Exception:
+            # Do not expose credentials, upstream response bodies, or local paths.
+            with AGENT_LOCK:
+                AGENT_JOBS[job_id].update(status="failed", summary="Расчёт агента прерван. Предыдущие прогнозы сохранены; повторите запуск.")
+
+    threading.Thread(target=work, daemon=True, name=f"forecast-agent-{day}").start()
+    return job_id
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -39,6 +89,33 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/agent/config":
+            try:
+                load_agent_environment(ROOT)
+                available = agent_available()
+            except OSError:
+                available = False
+            example = ROOT / "agent-examples" / "2026-02-01-report.json"
+            self.json_response(200, {"available": available, "provider": "openai",
+                "model": os.environ.get("OPENAI_MODEL", DEFAULT_MODEL),
+                "reason": "" if available else "AI-агент не настроен на сервере; опубликованные прогнозы доступны.",
+                "example_date": "2026-02-01" if example.is_file() else None})
+            return
+        if parsed.path == "/api/agent/example":
+            try:
+                report = json.loads((ROOT / "agent-examples" / "2026-02-01-report.json").read_text())
+                report["recorded"] = True
+                self.json_response(200, report)
+            except (OSError, ValueError):
+                self.json_response(404, {"error": "Запись реального запуска пока не сохранена."})
+            return
+        if parsed.path == "/api/agent/status":
+            params = urllib.parse.parse_qs(parsed.query)
+            ids = params.get("id", [])
+            with AGENT_LOCK:
+                job = copy.deepcopy(AGENT_JOBS.get(ids[0])) if len(ids) == 1 else None
+            self.json_response(200 if job else 404, job or {"error": "Запуск не найден. Возможно, сервер был перезапущен."})
+            return
         if parsed.path == "/":
             try:
                 self.respond(200, HTML.read_bytes(), "text/html; charset=utf-8")
@@ -57,9 +134,7 @@ class Handler(BaseHTTPRequestHandler):
         params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
         dates = params.get("date", [])
         refresh = params.get("refresh", ["0"])
-        if len(dates) != 1 or not re.fullmatch(
-            r"2026-(?:01-31|02-(?:0[1-9]|1[0-9]|2[0-8]))", dates[0]
-        ) or len(refresh) != 1 or refresh[0] not in ("0", "1"):
+        if len(dates) != 1 or not re.fullmatch(DATE_PATTERN, dates[0]) or len(refresh) != 1 or refresh[0] not in ("0", "1"):
             self.json_response(400, {"error": "Укажите дату 31 января — 28 февраля 2026"})
             return
         try:
@@ -85,6 +160,32 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, ValueError, RuntimeError, KeyError, TypeError,
                 json.JSONDecodeError, urllib.error.URLError, TimeoutError) as exc:
             self.json_response(502, {"error": f"Не удалось рассчитать прогноз: {exc}"})
+
+    def do_POST(self) -> None:
+        if self.path != "/api/agent":
+            self.json_response(404, {"error": "Маршрут не найден"})
+            return
+        origin = self.headers.get("Origin")
+        if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get("Host"):
+            self.json_response(403, {"error": "Запускайте агента со страницы приложения."})
+            return
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+            self.json_response(415, {"error": "Ожидается application/json."})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 1024:
+                raise ValueError("Некорректный размер запроса.")
+            body = json.loads(self.rfile.read(length))
+            if (not isinstance(body, dict) or set(body) != {"date"}
+                    or not isinstance(body["date"], str) or not re.fullmatch(DATE_PATTERN, body["date"])):
+                raise ValueError("Укажите дату 31 января — 28 февраля 2026.")
+            job_id = start_agent_job(dt.date.fromisoformat(body["date"]))
+            self.json_response(202, {"job_id": job_id})
+        except (ValueError, OSError):
+            self.json_response(400, {"error": "Проверьте дату и доступность AI-агента на сервере."})
+        except RuntimeError as exc:
+            self.json_response(429, {"error": str(exc)})
 
 
 def main() -> int:
