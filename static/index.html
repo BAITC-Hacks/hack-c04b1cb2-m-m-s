@@ -310,7 +310,10 @@
       $('agent-tech-reason').textContent = agentConfig.reason || 'Запуск доступен на этом сервере.';
       $('agent-example').hidden = !agentConfig.example_date;
       $('campaign-config').textContent = agentConfig.campaign_available
-        ? 'Серверные входы готовы.' : (agentConfig.campaign_reason || 'Автономный проход пока недоступен.');
+        ? (agentConfig.campaign_mode === 'prepared_models'
+          ? 'Готовые модели конкурсной станции. Исходные CSV не нужны.'
+          : 'История станции готова. Агент обучит модель при необходимости.')
+        : (agentConfig.campaign_reason || 'Автономный проход пока недоступен.');
     } catch (error) {
       $('agent-config').textContent = 'Не удалось проверить доступность AI-агента.';
       $('agent-help').hidden = false;

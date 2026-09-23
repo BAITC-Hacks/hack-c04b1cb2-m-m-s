@@ -15,7 +15,7 @@ from unittest import mock
 import forecast_agent
 import run_campaign as campaign
 from power_model import FIELDS, train
-from station_profile import station_digest
+from station_profile import DEFAULT_STATION, station_digest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 FIRST = dt.date(2026, 1, 31)
@@ -253,6 +253,25 @@ class CampaignTests(unittest.TestCase):
         self.assertIn("относится к другой станции или истории", result["summary"])
         self.assertEqual(self.calls, [])
 
+    def test_csv_campaign_keeps_legacy_default_path_and_state_format(self):
+        profile_hash = station_digest(STATION)
+        dataset_hash = campaign.canonical_digest(campaign.source_hashes(self.csv_dir))
+        legacy_dir = self.root / "predictions/campaigns" / (
+            f"{STATION['id']}-{profile_hash[:10]}-{dataset_hash[:10]}")
+        first = campaign.run_campaign(root=self.root, station=copy.deepcopy(STATION),
+            input_dir=self.csv_dir, first_day=FIRST, days=1)
+        self.assertEqual(first["status"], "completed", first["summary"])
+        self.assertTrue((legacy_dir / "campaign-state.json").is_file())
+        state_path = legacy_dir / "campaign-state.json"
+        state = json.loads(state_path.read_text())
+        state.pop("mode")
+        state_path.write_text(json.dumps(state))
+        self.calls.clear()
+        resumed = campaign.run_campaign(root=self.root, station=copy.deepcopy(STATION),
+            input_dir=self.csv_dir, first_day=FIRST, days=1)
+        self.assertEqual(resumed["status"], "completed", resumed["summary"])
+        self.assertEqual(self.calls, [])
+
     def test_protected_output_and_models_symlink_are_rejected_without_touching_baseline(self):
         (self.root / "models").mkdir()
         (self.root / "results").mkdir()
@@ -311,6 +330,122 @@ class CampaignTests(unittest.TestCase):
                 repaired = json.loads(model_path.read_text())
                 self.assertEqual(repaired["trained_through_inclusive"], "2026-01-30")
                 self.assertEqual(repaired["station"], STATION)
+
+    def test_prepared_models_run_two_days_without_training_and_resume_offline(self):
+        ready_root = self.base / "ready-project"
+        (ready_root / "models").mkdir(parents=True)
+        for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json"):
+            (ready_root / "models" / name).write_bytes((REPO / "models" / name).read_bytes())
+        before = {name: (ready_root / "models" / name).read_bytes()
+                  for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json")}
+        self.root = ready_root
+        self.active_output = self.output
+        # Reset the mock's plan state, then use the real agent with the existing
+        # offline weather/Responses fixtures. No training tool should be needed.
+        self.cursor = {}
+        self.plans = {}
+        self.attempts = {}
+        result = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            first_day=FIRST, days=2, output_dir=self.output)
+        self.assertEqual(result["status"], "completed", result["summary"])
+        self.assertEqual(result["completed_days"], 2)
+        self.assertNotIn("train_model", [name for _day, name in self.calls])
+        for name, contents in before.items():
+            self.assertEqual((ready_root / "models" / name).read_bytes(), contents)
+        campaign_models = list((self.output / "models").glob("*.json"))
+        self.assertEqual(len(campaign_models), 2)
+        for model_path in campaign_models:
+            model = json.loads(model_path.read_text())
+            self.assertEqual(model["station"], DEFAULT_STATION)
+            self.assertEqual(model["station_sha256"], station_digest(DEFAULT_STATION))
+        calls = list(self.calls)
+        with mock.patch.object(forecast_agent, "_response", side_effect=AssertionError("LLM called")):
+            resumed = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+                first_day=FIRST, days=2, output_dir=self.output)
+        self.assertEqual(resumed["status"], "completed", resumed["summary"])
+        self.assertEqual(resumed["completed_days"], 2)
+        self.assertEqual(self.calls, calls)
+
+    def test_prepared_source_change_invalidates_explicit_campaign_identity(self):
+        ready_root = self.base / "changed-source-project"
+        (ready_root / "models").mkdir(parents=True)
+        for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json"):
+            (ready_root / "models" / name).write_bytes((REPO / "models" / name).read_bytes())
+        first = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            first_day=FIRST, days=1, output_dir=self.output)
+        self.assertEqual(first["status"], "completed", first["summary"])
+        source_path = ready_root / "models/power-curve-2026-01-30.json"
+        source_path.write_bytes(source_path.read_bytes() + b"\n")
+        self.calls.clear()
+        changed = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            first_day=FIRST, days=1, output_dir=self.output)
+        self.assertEqual(changed["status"], "failed")
+        self.assertIn("относится к другой станции или истории", changed["summary"])
+        self.assertEqual(self.calls, [])
+
+    def test_prepared_corrupt_campaign_copy_is_restored_before_recomputation(self):
+        ready_root = self.base / "copy-repair-project"
+        (ready_root / "models").mkdir(parents=True)
+        for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json"):
+            (ready_root / "models" / name).write_bytes((REPO / "models" / name).read_bytes())
+        first = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            first_day=FIRST, days=1, output_dir=self.output)
+        self.assertEqual(first["status"], "completed", first["summary"])
+        local_copy = self.output / "models/power-curve-2026-01-30.json"
+        local_copy.write_text("damaged copy")
+        self.calls.clear()
+        self.cursor = {}
+        self.plans = {}
+        self.attempts = {}
+        repaired = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            first_day=FIRST, days=1, output_dir=self.output)
+        self.assertEqual(repaired["status"], "completed", repaired["summary"])
+        self.assertTrue(self.calls)
+        model = json.loads(local_copy.read_text())
+        self.assertEqual(model["trained_through_inclusive"], "2026-01-30")
+        self.assertEqual(model["station"], DEFAULT_STATION)
+        self.assertNotIn("train_model", [name for _day, name in self.calls])
+
+    def test_prepared_campaign_completes_full_historical_period_offline(self):
+        ready_root = self.base / "full-ready-project"
+        (ready_root / "models").mkdir(parents=True)
+        for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json"):
+            (ready_root / "models" / name).write_bytes((REPO / "models" / name).read_bytes())
+        self.calls.clear()
+        self.cursor = {}
+        self.plans = {}
+        self.attempts = {}
+        result = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            first_day=FIRST, days=29, output_dir=self.output)
+        self.assertEqual(result["status"], "completed", result["summary"])
+        self.assertEqual(result["completed_days"], 29)
+        self.assertEqual(result["forecast"]["forecast_date"], "2026-02-28")
+        self.assertNotIn("train_model", [name for _day, name in self.calls])
+
+    def test_prepared_mode_rejects_other_station_and_missing_or_invalid_model(self):
+        with self.assertRaises(ValueError):
+            campaign.load_prepared_models(REPO, STATION)
+        broken = self.base / "broken-project"
+        (broken / "models").mkdir(parents=True)
+        with self.assertRaises(OSError):
+            campaign.load_prepared_models(broken, DEFAULT_STATION)
+        (broken / "models/power-curve-2026-01-30.json").write_text("not-json")
+        with self.assertRaises(ValueError):
+            campaign.load_prepared_models(broken, DEFAULT_STATION)
+
+        for metadata in ("station", "station_sha256"):
+            with self.subTest(metadata=metadata):
+                marked = self.base / f"marked-{metadata}"
+                (marked / "models").mkdir(parents=True)
+                for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json"):
+                    model = json.loads((REPO / "models" / name).read_text())
+                    if metadata == "station":
+                        model[metadata] = copy.deepcopy(STATION)
+                    else:
+                        model[metadata] = station_digest(STATION)
+                    (marked / "models" / name).write_text(json.dumps(model))
+                with self.assertRaises(ValueError):
+                    campaign.load_prepared_models(marked, DEFAULT_STATION)
 
 
 if __name__ == "__main__":

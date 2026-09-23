@@ -64,13 +64,19 @@ def _campaign_settings() -> tuple[dict | None, pathlib.Path | None, str]:
         if not agent_available():
             return None, None, "Для автономного прохода нужен серверный ключ OpenAI."
         configured = os.environ.get("WIND_TRAINING_DIR", "").strip()
-        if not configured:
-            return None, None, "Для автономного прохода задайте WIND_TRAINING_DIR на сервере."
         station_setting = os.environ.get("WIND_STATION_FILE", "").strip()
         station_path = pathlib.Path(station_setting) if station_setting else pathlib.Path("stations/example.json")
         if not station_path.is_absolute():
             station_path = ROOT / station_path
         station = load_station(station_path)
+        if not configured:
+            from run_campaign import load_prepared_models
+            try:
+                load_prepared_models(ROOT, station)
+            except (OSError, ValueError, TypeError):
+                return None, None, ("Без каталога CSV доступны готовые модели конкурсной станции. "
+                                    "Проверьте профиль станции и файлы в models.")
+            return station, None, ""
         input_dir = pathlib.Path(configured)
         if not input_dir.is_absolute():
             input_dir = ROOT / input_dir
@@ -216,6 +222,8 @@ class Handler(BaseHTTPRequestHandler):
                 "reason": "" if available else "AI-агент не настроен на сервере; опубликованные прогнозы доступны.",
                 "example_date": "2026-02-01" if example.is_file() else None,
                 "campaign_available": not campaign_reason,
+                "campaign_mode": (None if campaign_reason else
+                                  "training" if _input_dir is not None else "prepared_models"),
                 "campaign_reason": campaign_reason})
             return
         if parsed.path == "/api/agent/example":

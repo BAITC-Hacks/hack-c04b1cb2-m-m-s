@@ -27,6 +27,9 @@ class CampaignWebTests(unittest.TestCase):
         self.root = pathlib.Path(self.temp.name)
         (self.root / "stations").mkdir()
         (self.root / "stations/example.json").write_text(json.dumps(DEFAULT_STATION))
+        (self.root / "models").mkdir()
+        for path in (REPO / "models").glob("power-curve-*.json"):
+            (self.root / "models" / path.name).write_bytes(path.read_bytes())
         self.csv_dir = self.root / "measurements"
         self.csv_dir.mkdir()
         for name in ("turbine-1", "turbine-2"):
@@ -86,14 +89,57 @@ class CampaignWebTests(unittest.TestCase):
             self.assertFalse(config["campaign_available"])
             self.assertTrue(config["campaign_reason"])
             self.assertEqual(self.request("POST", "/api/campaign", {})[0], 400)
-        with mock.patch.dict(os.environ, {"WIND_TRAINING_DIR": ""}):
+        with mock.patch.dict(os.environ, {"WIND_TRAINING_DIR": "missing-csv-directory"}):
             self.assertFalse(self.request("GET", "/api/agent/config")[1]["campaign_available"])
         (self.root / "stations/example.json").write_text('{"id":"bad"}')
         self.assertFalse(self.request("GET", "/api/agent/config")[1]["campaign_available"])
         self.assertEqual(web.AGENT_JOBS, {})
         self.assertEqual(len(web.AGENT_STARTS), 0)
 
+    def test_campaign_starts_on_prepared_models_without_training_directory(self):
+        for configured in (None, "", "  "):
+            with self.subTest(configured=configured), mock.patch.dict(os.environ):
+                if configured is None:
+                    os.environ.pop("WIND_TRAINING_DIR", None)
+                else:
+                    os.environ["WIND_TRAINING_DIR"] = configured
+                code, config = self.request("GET", "/api/agent/config")
+                self.assertEqual(code, 200)
+                self.assertTrue(config["campaign_available"], config["campaign_reason"])
+                self.assertEqual(config["campaign_reason"], "")
+                self.assertEqual(config["campaign_mode"], "prepared_models")
+                with mock.patch.object(web, "run_campaign_job", side_effect=self.report) as run:
+                    code, started = self.request("POST", "/api/campaign", {})
+                    self.assertEqual(code, 202)
+                    self.wait_status(started["job_id"], "completed")
+                self.assertIsNone(run.call_args.kwargs["input_dir"])
+                self.assertEqual(run.call_args.kwargs["station"], DEFAULT_STATION)
+
+    def test_prepared_mode_rejects_missing_or_corrupt_models_and_other_station(self):
+        path = self.root / "models/power-curve-2026-01-31.json"
+        original = path.read_bytes()
+        with mock.patch.dict(os.environ, {"WIND_TRAINING_DIR": ""}):
+            for contents in (None, b"{bad json}"):
+                if contents is None:
+                    path.unlink()
+                else:
+                    path.write_bytes(contents)
+                config = self.request("GET", "/api/agent/config")[1]
+                self.assertFalse(config["campaign_available"])
+                self.assertIsNone(config["campaign_mode"])
+                self.assertEqual(self.request("POST", "/api/campaign", {})[0], 400)
+                self.assertNotIn(str(self.root), config["campaign_reason"])
+            path.write_bytes(original)
+            station = json.loads(json.dumps(DEFAULT_STATION))
+            station["locations"]["turbine-1"][0] = 44.125
+            (self.root / "stations/example.json").write_text(json.dumps(station))
+            self.assertFalse(self.request("GET", "/api/agent/config")[1]["campaign_available"])
+            self.assertEqual(self.request("POST", "/api/campaign", {})[0], 400)
+        self.assertEqual(web.AGENT_JOBS, {})
+        self.assertEqual(len(web.AGENT_STARTS), 0)
+
     def test_start_poll_progress_and_finished_forecast(self):
+        self.assertEqual(self.request("GET", "/api/agent/config")[1]["campaign_mode"], "training")
         started = threading.Event()
         release = threading.Event()
 

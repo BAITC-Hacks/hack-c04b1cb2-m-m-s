@@ -1,8 +1,10 @@
 """Run a resumable historical agent campaign for a configured two-turbine station.
 
-The operator supplies coordinates and compatible local CSVs. The agent chooses
-tools, including training when required. The scheduler advances historical days;
-it never substitutes today's weather or uploads raw training rows to OpenAI.
+By default, use the competition station and its prepared models without CSVs.
+For local training, supply a station profile and compatible CSVs via --input-dir.
+The agent chooses tools, including training when configured. The scheduler
+advances historical days; it never substitutes today's weather or uploads raw
+training rows to OpenAI.
 """
 from __future__ import annotations
 
@@ -19,7 +21,7 @@ from agent_settings import load_agent_environment
 from forecast_agent import FIRST_DAY, LAST_DAY, MODEL_LAST_DAY, agent_available, run_agent
 from forecast_weather import retrieve
 from power_model import validate_model
-from station_profile import load_station, station_digest, validate_station
+from station_profile import DEFAULT_STATION, load_station, station_digest, validate_station
 from storage import atomic_write
 from watch_forecast import canonical_digest
 
@@ -31,6 +33,30 @@ def source_hashes(input_dir: pathlib.Path) -> dict:
 
 def file_hash(path: pathlib.Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_prepared_models(root: pathlib.Path, station: dict) -> dict[str, dict]:
+    """Load the published prepared models, only for their exact station profile."""
+    root = pathlib.Path(root)
+    station = validate_station(station)
+    if station != validate_station(DEFAULT_STATION):
+        raise ValueError("Готовые модели доступны только для стандартной станции; для другой станции нужны CSV.")
+    models = {}
+    for cutoff in (dt.date(2026, 1, 30), dt.date(2026, 1, 31)):
+        name = f"power-curve-{cutoff}.json"
+        model = json.loads((root / "models" / name).read_text(encoding="utf-8"))
+        validate_model(model, cutoff)
+        if model.get("trained_through_inclusive") != str(cutoff):
+            raise ValueError(f"Готовая модель {name} имеет неверную дату отсечения.")
+        if (("station" in model and model["station"] != station)
+                or ("station_sha256" in model
+                    and model["station_sha256"] != station_digest(station))):
+            raise ValueError(f"Готовая модель {name} размечена для другой станции.")
+        model = dict(model)
+        model["station"] = station
+        model["station_sha256"] = station_digest(station)
+        models[name] = model
+    return models
 
 
 @contextlib.contextmanager
@@ -52,7 +78,7 @@ def campaign_lock(directory: pathlib.Path):
 
 
 def saved_day(day: dt.date, entry: dict, directory: pathlib.Path, station: dict,
-              hashes: dict) -> dict | None:
+              hashes: dict, *, prepared: bool = False) -> dict | None:
     """Resume only if artifacts and the actually used inputs still match."""
     try:
         cutoff = min(day - dt.timedelta(days=1), MODEL_LAST_DAY)
@@ -66,8 +92,8 @@ def saved_day(day: dt.date, entry: dict, directory: pathlib.Path, station: dict,
         model = json.loads(model_path.read_text())
         validate_model(model, cutoff)
         if (model.get("station") != station or model.get("station_sha256") != station_digest(station)
-                or any(model["turbines"][name].get("source_sha256") != digest
-                       for name, digest in hashes.items())):
+                or (not prepared and any(model["turbines"][name].get("source_sha256") != digest
+                                         for name, digest in hashes.items()))):
             return None
         cache_dir = directory / "weather-cache"
         # Resume is an offline integrity check. Missing cache triggers a new run.
@@ -88,7 +114,7 @@ def saved_day(day: dt.date, entry: dict, directory: pathlib.Path, station: dict,
         return None
 
 
-def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
+def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path | None = None,
                  first_day: dt.date = FIRST_DAY, days: int = 29,
                  output_dir: pathlib.Path | None = None,
                  on_event: Callable[[dict], None] | None = None, attempts: int = 2) -> dict:
@@ -114,12 +140,20 @@ def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
                 or not FIRST_DAY <= first_day <= first_day + dt.timedelta(days=days - 1) <= LAST_DAY):
             raise ValueError("Допустим последовательный период 31.01–28.02.2026; до двух попыток на день.")
         report["station"] = station
-        root, input_dir = pathlib.Path(root), pathlib.Path(input_dir)
-        hashes = source_hashes(input_dir)
+        root = pathlib.Path(root)
+        prepared = input_dir is None
+        if prepared:
+            prepared_models = load_prepared_models(root, station)
+            hashes = {name: file_hash(root / "models" / name) for name in prepared_models}
+        else:
+            input_dir = pathlib.Path(input_dir)
+            prepared_models = {}
+            hashes = source_hashes(input_dir)
         profile_hash = station_digest(station)
-        dataset_hash = canonical_digest(hashes)
+        dataset_hash = canonical_digest({"prepared_models": hashes} if prepared else hashes)
+        dataset_suffix = f"prepared-{dataset_hash[:10]}" if prepared else dataset_hash[:10]
         directory = pathlib.Path(output_dir) if output_dir is not None else (
-            root / "predictions" / "campaigns" / f"{station['id']}-{profile_hash[:10]}-{dataset_hash[:10]}")
+            root / "predictions" / "campaigns" / f"{station['id']}-{profile_hash[:10]}-{dataset_suffix}")
         protected = [(root / name).resolve() for name in ("models", "results")]
         if (directory.resolve() == root.resolve()
                 or any(candidate.resolve().is_relative_to(path)
@@ -128,18 +162,23 @@ def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
         directory.mkdir(parents=True, exist_ok=True)
         with campaign_lock(directory):
             state_path = directory / "campaign-state.json"
-            state = {"version": 1, "station_sha256": profile_hash, "source_sha256": hashes, "days": {}}
+            mode = "prepared-models-v1" if prepared else "csv-training-v1"
+            state = {"version": 1, "mode": mode, "station_sha256": profile_hash,
+                     "source_sha256": hashes, "days": {}}
             if state_path.is_file():
                 prior = json.loads(state_path.read_text())
                 if (prior.get("station_sha256") != profile_hash or prior.get("source_sha256") != hashes
+                        or prior.get("mode", "csv-training-v1" if not prepared else None) != mode
                         or prior.get("version") != 1 or not isinstance(prior.get("days"), dict)):
                     raise ValueError("Папка прохода относится к другой станции или истории; выберите новую папку результата.")
                 state = prior
             for offset in range(days):
                 day = first_day + dt.timedelta(days=offset)
-                if source_hashes(input_dir) != hashes:
-                    raise ValueError("История CSV изменилась во время прохода; остановка для согласованного повторного запуска.")
-                previous = saved_day(day, state["days"].get(str(day), {}), directory, station, hashes)
+                if (source_hashes(input_dir) if not prepared else
+                        {name: file_hash(root / "models" / name) for name in prepared_models}) != hashes:
+                    raise ValueError("Исходные CSV или готовые модели изменились во время прохода; остановка для согласованного повторного запуска.")
+                previous = saved_day(day, state["days"].get(str(day), {}), directory, station, hashes,
+                                     prepared=prepared)
                 if previous is not None:
                     report["forecast"] = previous
                     report["completed_days"] += 1
@@ -150,6 +189,12 @@ def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
                     raise RuntimeError("Для нового дневного расчёта требуется серверный OPENAI_API_KEY.")
                 cutoff = min(day - dt.timedelta(days=1), MODEL_LAST_DAY)
                 model_path = directory / "models" / f"power-curve-{cutoff}.json"
+                if prepared:
+                    model_name = model_path.name
+                    if model_name not in prepared_models:
+                        raise ValueError(f"Нет готовой модели на дату отсечения {cutoff}.")
+                    atomic_write(model_path, json.dumps(prepared_models[model_name], ensure_ascii=False,
+                                                        allow_nan=False, indent=2) + "\n")
                 daily = None
                 for attempt in range(1, attempts + 1):
                     emit("campaign_day" if attempt == 1 else "campaign_retry", "start",
@@ -160,7 +205,7 @@ def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
                         event.pop("step", None)
                         emit(day=day, **event)
 
-                    daily = run_agent(day, root=root, station=station, input_dir=input_dir,
+                    daily = run_agent(day, root=root, station=station, input_dir=None if prepared else input_dir,
                                       model_path=model_path, cache_dir=directory / "weather-cache",
                                       output_dir=directory, on_event=relay)
                     for field in report["usage"]:
@@ -170,12 +215,13 @@ def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
                     emit("campaign_day", "error", daily["summary"], day)
                 if daily is None or daily["status"] != "completed":
                     raise RuntimeError(f"Остановка на {day}: {daily['summary'] if daily else 'нет результата'} Повторный запуск продолжит с этого дня.")
-                if source_hashes(input_dir) != hashes:
-                    raise ValueError("CSV изменились во время обучения; результат не отмечен завершённым.")
+                if (source_hashes(input_dir) if not prepared else
+                        {name: file_hash(root / "models" / name) for name in prepared_models}) != hashes:
+                    raise ValueError("Исходные CSV или готовые модели изменились во время расчёта; результат не отмечен завершённым.")
                 entry = {"input_sha256": daily["input_sha256"], "model_sha256": file_hash(model_path),
                          "forecast_sha256": file_hash(directory / f"{day}-agent-forecast.json"),
                          "report_sha256": file_hash(directory / f"{day}-agent-report.json")}
-                verified = saved_day(day, entry, directory, station, hashes)
+                verified = saved_day(day, entry, directory, station, hashes, prepared=prepared)
                 if verified is None or verified != daily["forecast"]:
                     raise RuntimeError("Не удалось подтвердить сохранённый дневной результат; прогресс не обновлён.")
                 state["days"][str(day)] = entry
@@ -200,8 +246,10 @@ def run_campaign(*, root: pathlib.Path, station: dict, input_dir: pathlib.Path,
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--station", type=pathlib.Path, required=True)
-    parser.add_argument("--input-dir", type=pathlib.Path, required=True)
+    parser.add_argument("--station", type=pathlib.Path,
+                        help="Station JSON profile (default: stations/example.json in the project)")
+    parser.add_argument("--input-dir", type=pathlib.Path,
+                        help="Training CSV directory; omit to use the competition station's prepared models")
     parser.add_argument("--start", type=dt.date.fromisoformat, default=FIRST_DAY)
     parser.add_argument("--days", type=int, default=29)
     parser.add_argument("--output-dir", type=pathlib.Path)
@@ -210,7 +258,7 @@ def main() -> int:
     root = pathlib.Path(__file__).resolve().parent
     try:
         load_agent_environment(root)
-        station = load_station(args.station)
+        station = load_station(args.station or root / "stations" / "example.json")
         def event(item):
             print(f"{item['forecast_date']} {item['tool']} [{item['status']}]: {item['detail']}", flush=True)
         result = run_campaign(root=root, station=station, input_dir=args.input_dir, first_day=args.start,
