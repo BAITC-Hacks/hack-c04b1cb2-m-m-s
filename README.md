@@ -64,7 +64,7 @@ python3 validate_january.py --model model.json --input-dir /path/to/csv --last 2
 
 `forecast_weather.py` запрашивает Open-Meteo Single Runs API с `models=ecmwf_ifs`, явно задаёт UTC, м/с и конкретный архивный запуск. Для решения 01.02.2026 06:00 UTC используется запуск 31.01.2026 18:00 UTC; этот 12-часовой зазор больше типичной 4–6-часовой задержки публикации глобальных запусков по документации Open-Meteo. `power_model.py` обучает и применяет кривые мощности. `calibrate_weather.py` согласует прогнозный ветер с кривой по ранее доступным данным. `run_forecast.py` управляет последовательностью, проверяет результат, выявляет часы низкой мощности и резкие изменения, затем сохраняет JSON. `validate_january.py` считает предварительные ошибки.
 
-Подробная схема автономного цикла — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Источники, модели, данные и условия использования — [docs/SOURCES.md](docs/SOURCES.md). Пошаговая демонстрация и часовые результаты — [WALKTHROUGH.md](WALKTHROUGH.md); подробный журнал — [docs/PROGRESS.md](docs/PROGRESS.md). Всё, кроме Python 3 и внешнего HTTP API погоды, работает локально. Секреты не используются.
+Подробная схема автономного цикла — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Источники, модели, данные и условия использования — [docs/SOURCES.md](docs/SOURCES.md). Пошаговая демонстрация и часовые результаты — [WALKTHROUGH.md](WALKTHROUGH.md); подробный журнал — [docs/PROGRESS.md](docs/PROGRESS.md). Для отдельной формы организатора подготовлен [черновик подачи](docs/SUBMISSION-DRAFT.md); сама форма ещё не отправлена. Всё, кроме Python 3 и внешнего HTTP API погоды, работает локально. Секреты не используются.
 
 ## Проверка ошибок и ограничений
 
