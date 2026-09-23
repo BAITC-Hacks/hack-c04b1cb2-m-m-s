@@ -6,123 +6,188 @@
   <title>ВЭС · Прогноз, который можно проверить</title>
   <link rel="icon" href="data:,">
   <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0d1726; color: #e9f1fa; }
+    :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f2f5f6; color: #183247; }
     * { box-sizing: border-box; }
-    body { margin: 0; }
-    main { max-width: 1100px; margin: auto; padding: 36px 20px 60px; }
-    h1 { margin: 8px 0 10px; font-size: clamp(27px, 4vw, 42px); letter-spacing: -.03em; }
-    h2 { font-size: 19px; margin: 0 0 18px; }
-    p { color: #aac0d6; line-height: 1.55; }
-    a { color: #6dd7ce; text-underline-offset: 3px; }
-    :focus-visible { outline: 3px solid #f8bf74; outline-offset: 4px; }
-    .intro { max-width: 780px; }
-    .eyebrow { color: #6dd7ce; font-weight: 700; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }
-    .panel { background: #142237; border: 1px solid #294159; border-radius: 18px; padding: 22px; margin-top: 22px; }
-    .controls { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
-    label { display: grid; gap: 8px; font-weight: 650; color: #c7d8e9; }
-    input, button { font: inherit; border-radius: 10px; padding: 11px 13px; min-height: 45px; }
-    input { color: #e9f1fa; background: #0d1726; border: 1px solid #45617b; }
-    button { cursor: pointer; background: #6dd7ce; color: #082022; border: 0; font-weight: 750; }
-    button:hover { background: #93eee5; }
-    button.secondary { background: #294159; color: #e9f1fa; border: 1px solid #45617b; }
-    button.secondary:hover { background: #36516a; }
-    a.download { color: #6dd7ce; align-self: center; font-weight: 650; }
-    button:disabled { opacity: .6; cursor: wait; }
-    .status { margin: 16px 0 0; min-height: 24px; }
-    .status.error { color: #ffad9e; }
-    .agent-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-    .agent-actions .note { margin: 0; }
-    .agent-journal { margin: 0; padding-left: 26px; display: grid; gap: 9px; }
-    .agent-journal.compact { max-height: 380px; overflow: auto; padding-right: 12px; }
-    .agent-journal li { padding-left: 5px; line-height: 1.45; }
-    .agent-journal li.error { color: #ffad9e; }
-    .agent-journal small { color: #aac0d6; }
+    body { margin: 0; min-width: 0; }
+    main { width: min(100%, 1280px); margin: auto; padding: 30px 24px 56px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(28px, 3vw, 39px); line-height: 1.15; letter-spacing: -.035em; }
+    h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.015em; }
+    p { color: #526879; line-height: 1.5; }
+    a { color: #075d64; text-underline-offset: 3px; }
+    :focus-visible { outline: 3px solid #b1691a; outline-offset: 3px; }
+    .eyebrow { color: #087077; font-weight: 750; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    .site-header { margin-bottom: 21px; }
+    .site-header .intro { max-width: 750px; margin-bottom: 0; font-size: 15px; }
+    .panel { min-width: 0; background: #fff; border: 1px solid #dbe5e8; border-radius: 18px; box-shadow: 0 3px 18px rgba(22, 48, 62, .035); padding: 22px; }
+    .toolbar { margin-bottom: 16px; }
+    .controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+    label { display: grid; gap: 7px; font-size: 13px; font-weight: 700; color: #334d5c; }
+    input, button { font: inherit; border-radius: 9px; min-height: 43px; }
+    input { width: 180px; padding: 9px 11px; color: #183247; background: #fff; border: 1px solid #adbdc5; }
+    button { padding: 10px 15px; cursor: pointer; background: #075e64; border: 1px solid #075e64; color: #fff; font-weight: 700; transition: background .15s, border-color .15s; }
+    button:hover { background: #034a50; border-color: #034a50; }
+    button.secondary { background: #fff; border: 1px solid #b6c9cc; color: #075e64; }
+    button.secondary:hover { background: #edf6f5; border-color: #075e64; }
+    button.ghost { background: transparent; border: 0; color: #075e64; padding-left: 0; min-height: 34px; }
+    button.ghost:hover { background: transparent; text-decoration: underline; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    a.download { align-self: center; font-weight: 650; font-size: 14px; margin-left: auto; }
+    .status { margin: 13px 0 0; min-height: 21px; font-size: 14px; }
+    .status.error, .agent-journal li.error { color: #a23f32; }
+    .dashboard { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+    .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .section-heading p { margin: 0; font-size: 13px; }
+    .result-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .badge { display: inline-flex; align-items: center; max-width: 100%; border-radius: 999px; padding: 5px 10px; background: #e5f1ef; color: #075e64; font-weight: 750; font-size: 12px; }
+    .badge[data-mode="recorded"] { background: #f5eaf7; color: #694075; }
+    .badge[data-mode="campaign"] { background: #eef0fa; color: #514887; }
+    .badge[data-mode="recalculated"] { background: #fff3df; color: #805115; }
+    .badge[data-mode="failed"] { background: #fff0ed; color: #a23f32; }
+    .badge[data-mode="running"] { background: #e8f4f5; color: #075e64; }
+    .subtle { color: #637988; font-size: 13px; }
+    .scale-note { margin-bottom: 15px; }
+    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .metric { min-width: 0; background: #f4f8f8; border: 1px solid #e5eff0; border-radius: 12px; padding: 13px 14px; }
+    .metric small { display: block; color: #546c79; font-size: 12px; line-height: 1.3; }
+    .metric strong { display: block; margin-top: 5px; font-size: clamp(22px, 2.4vw, 29px); font-variant-numeric: tabular-nums; }
+    .legend { display: flex; gap: 10px 20px; flex-wrap: wrap; margin: 3px 0 6px; font-size: 13px; font-weight: 600; color: #3c5666; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; }
+    svg { display: block; width: 100%; height: auto; margin: 6px 0 8px; }
+    .gridline { stroke: #dfE8eb; stroke-width: 1; }
+    .axis { fill: #657c8b; font: 12px system-ui, sans-serif; }
+    .analysis { margin: 10px 0 0; font-size: 13px; }
+    .agent-card h2 { margin-bottom: 8px; }
+    .agent-card p { font-size: 14px; margin-bottom: 14px; }
+    .agent-card button { width: 100%; }
+    .agent-card .secondary { margin-top: 9px; }
+    .agent-card .availability { margin: 10px 0 0; font-size: 13px; }
+    .agent-card .quiet-details { margin-top: 16px; }
+    .agent-card .quiet-details p { font-size: 13px; margin: 8px 0; }
+    details { min-width: 0; }
+    summary { cursor: pointer; color: #284a5a; font-weight: 700; }
+    summary:hover { color: #075e64; }
+    .quiet-details { border-top: 1px solid #e7edef; padding-top: 11px; margin-top: 13px; }
+    .quiet-details p { margin: 9px 0 0; }
+    .passport { border-top: 1px solid #e7edef; margin-top: 18px; padding-top: 14px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+    .chip { border: 1px solid #d3e0e3; background: #f6faf9; border-radius: 8px; padding: 7px 9px; color: #355263; font-size: 12px; overflow-wrap: anywhere; }
+    .agent-panel { margin-top: 16px; }
+    .agent-panel .section-heading { margin-bottom: 8px; }
+    .agent-summary { white-space: pre-wrap; color: #183247; margin: 12px 0 0; }
+    .agent-journal { margin: 12px 0 0; padding-left: 24px; display: grid; gap: 9px; }
+    .agent-journal.compact { max-height: 360px; overflow: auto; padding-right: 10px; }
+    .agent-journal li { padding-left: 3px; line-height: 1.45; color: #3b5666; }
+    .agent-journal li strong { color: #183247; }
     .agent-journal details { margin-top: 5px; }
-    .agent-journal pre { max-height: 180px; overflow: auto; padding: 10px; border-radius: 8px; background: #0d1b2c; color: #c7d8e9; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .agent-summary { margin-bottom: 0; color: #e9f1fa; white-space: pre-wrap; }
-    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-    .chip { border: 1px solid #36516a; border-radius: 999px; padding: 8px 12px; color: #c7d8e9; font-size: 13px; }
-    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .metric { background: #0d1b2c; border-radius: 12px; padding: 17px; }
-    .metric small { display: block; color: #aac0d6; }
-    .metric strong { display: block; font-size: 29px; margin-top: 5px; }
-    .section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-    .section-heading p { margin: 0 0 18px; }
-    .passport { margin: 22px 0 0; padding-top: 20px; border-top: 1px solid #294159; }
-    summary { cursor: pointer; font-weight: 650; color: #c7d8e9; }
-    .passport .meta { margin-top: 16px; margin-bottom: 12px; }
-    .passport p { margin: 10px 0 0; }
-    .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 18px 0 5px; font-size: 13px; color: #bfd1e2; }
-    .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px; }
-    svg { display: block; width: 100%; height: auto; margin-top: 10px; }
-    .gridline { stroke: #31465c; stroke-width: 1; }
-    .axis { fill: #92abc2; font: 12px system-ui, sans-serif; }
-    .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+    .agent-journal pre { max-height: 180px; overflow: auto; padding: 10px; border-radius: 8px; background: #f2f6f7; color: #355263; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; margin-top: 10px; }
+    .progress-row progress { width: 100%; height: 12px; accent-color: #075e64; }
+    .progress-row span { font-size: 13px; color: #526879; }
+    .details-panel { margin-top: 16px; }
+    .details-panel[open] { padding-bottom: 22px; }
+    .table-wrap { margin-top: 15px; overflow-x: auto; max-height: 420px; overflow-y: auto; }
     table { border-collapse: collapse; width: 100%; min-width: 590px; font-variant-numeric: tabular-nums; }
-    th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #294159; }
+    th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #e2e9eb; }
     th:first-child, td:first-child { text-align: left; }
-    th { position: sticky; top: 0; background: #142237; color: #b4cde3; }
-    tr:hover td { background: #1a3049; }
-    .note { font-size: 13px; }
+    th { position: sticky; top: 0; background: #f4f8f8; color: #3e5b6b; }
+    tr:hover td { background: #f5faf9; }
+    .footer-notes { margin-top: 20px; }
+    .footer-notes p { font-size: 12px; margin-bottom: 8px; }
     [hidden] { display: none !important; }
-    @media (max-width: 650px) { main { padding: 24px 14px 40px; } .metrics { grid-template-columns: 1fr; gap: 8px; } .metric { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; } .metric strong { margin: 0; font-size: 25px; } .panel { padding: 16px; } .controls > label, .controls > button { width: 100%; } .chip { border-radius: 10px; overflow-wrap: anywhere; } }
+    @media (max-width: 900px) { .dashboard { grid-template-columns: minmax(0, 1fr); } .agent-card { max-width: none; } }
+    @media (max-width: 600px) {
+      main { padding: 20px 14px 40px; }
+      .panel { padding: 17px; border-radius: 15px; }
+      .controls { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: end; }
+      .controls > * { min-width: 0; }
+      .controls label { width: auto; }
+      .controls input { width: 100%; }
+      .controls button { width: 100%; }
+      a.download { grid-column: 1 / -1; margin: 0; align-self: center; }
+      .metrics { gap: 6px; }
+      .metric { padding: 10px 8px; }
+      .metric small { font-size: 11px; }
+      .metric strong { font-size: 20px; }
+      .legend { gap: 7px 13px; }
+      .chip { width: 100%; }
+    }
   </style>
 </head>
 <body>
 <main>
-  <div class="eyebrow">Ветропарк · январь–февраль 2026</div>
-  <h1>Прогноз, который можно проверить</h1>
-  <p class="intro">Почасовая мощность двух турбин на 48 часов. Каждый прогноз связан с архивным выпуском погоды и границей обучения модели. Выберите историческую дату и проследите путь от исходных данных до результата.</p>
-  <section class="panel">
+  <header class="site-header">
+    <div class="eyebrow">Исторический тест · январь–февраль 2026</div>
+    <h1>Прогноз мощности на 48 часов</h1>
+    <p class="intro">Почасовой прогноз двух турбин по архивной погоде. Выберите дату расчёта.</p>
+  </header>
+  <section class="panel toolbar" aria-label="Выбор прогноза">
     <div class="controls">
       <label>Дата расчёта (UTC)<input id="date" type="date" min="2026-01-31" max="2026-02-28" value="2026-02-01" required></label>
-      <button id="run" type="button">Опубликованный прогноз</button>
-      <button id="refresh" type="button" class="secondary">Пересчитать из архива</button>
-      <button id="agent-run" type="button" disabled>Запустить AI-агента</button>
-      <button id="campaign-run" type="button" class="secondary" disabled>Пройти февраль автономно</button>
-      <a class="download" href="/download/february-hourly.csv" download="february-hourly.csv">Скачать весь февраль CSV</a>
+      <button id="run" type="button" class="secondary">Открыть прогноз</button>
+      <a class="download" href="/download/february-hourly.csv" download="february-hourly.csv">Скачать февраль CSV</a>
     </div>
     <p id="status" class="status" role="status" aria-live="polite">Открываем сохранённый прогноз…</p>
-    <p class="note">Обычный просмотр и CSV открывают опубликованный снимок. «Пересчитать» получает архив заново. Результаты фонового наблюдения сохраняются отдельно и здесь автоматически не подменяются.</p>
-    <div class="agent-actions"><button id="agent-example" type="button" class="secondary" hidden>Запись запуска 1 февраля</button><p id="agent-config" class="note" role="status">Проверяем доступность AI-агента…</p></div>
-    <p class="note">Агент выбирает инструменты и проверяет результат. Мощность рассчитывает численная модель.</p>
-    <p class="note">Автономный проход охватывает 31.01–28.02: 29 дневных AI-расчётов, обучение модели при отсутствии готовой и сохранение прогресса между запусками. <span id="campaign-config">Проверяем серверные входы…</span></p>
   </section>
-  <section class="panel" id="agent-panel" hidden aria-live="polite">
-    <div class="section-heading"><h2>Журнал AI-агента</h2><p class="note" id="agent-caption"></p></div>
-    <ol class="agent-journal" id="agent-events"></ol>
-    <p id="agent-summary" class="agent-summary"></p>
+  <div class="dashboard">
+    <section class="panel" id="results" hidden aria-label="Результат прогноза">
+      <div class="section-heading">
+        <div class="result-heading"><h2>Прогноз мощности</h2><span class="badge" id="result-badge" data-mode="published">Опубликованный</span></div>
+        <p class="subtle" id="horizon"></p>
+      </div>
+      <p class="subtle scale-note">Нормализованная мощность от 0 до 1; это не МВт и не МВт·ч.</p>
+      <div class="metrics">
+        <div class="metric"><small>Среднее по ветропарку</small><strong id="mean"></strong></div>
+        <div class="metric"><small>Максимум за 48 часов</small><strong id="maximum"></strong></div>
+        <div class="metric"><small>Наибольший скачок за час</small><strong id="ramp"></strong></div>
+      </div>
+      <div class="legend"><span><i class="dot" style="background:#0a7478"></i>Турбина 1</span><span><i class="dot" style="background:#bb741b"></i>Турбина 2</span><span><i class="dot" style="background:#8055a0"></i>Среднее по ветропарку</span></div>
+      <svg id="chart" viewBox="0 0 900 300" role="img" aria-label="График нормализованной мощности за 48 часов"></svg>
+      <p class="analysis" id="analysis"></p>
+      <details class="passport"><summary>Происхождение и проверки прогноза</summary>
+        <div class="meta"><span class="chip" id="training"></span><span class="chip" id="weather-run"></span><span class="chip" id="decision"></span><span class="chip" id="calibration"></span></div>
+        <p class="subtle" id="checks"></p>
+        <p class="subtle" id="weather-links"></p>
+        <p class="subtle">Использован погодный выпуск за 12 часов до решения. Точное время его появления в архиве не подтверждено.</p>
+        <p class="subtle">Опубликованный прогноз — сохранённый снимок. Повторный расчёт заново получает архив погоды; результаты фонового наблюдения хранятся отдельно.</p>
+        <button id="refresh" type="button" class="ghost">Пересчитать из архива</button>
+      </details>
+    </section>
+    <aside class="panel agent-card" aria-labelledby="agent-title">
+      <h2 id="agent-title">AI-агент</h2>
+      <p>Сам выбирает инструменты и проверяет результат на <strong>48 часов для выбранной даты</strong>. Мощность рассчитывает численная модель.</p>
+      <button id="agent-run" type="button" disabled>Запустить AI-агента</button>
+      <p id="agent-config" class="availability" role="status">Проверяем доступность…</p>
+      <button id="agent-example" type="button" class="secondary" hidden>Запись запуска 1 февраля</button>
+      <p class="subtle">Запись показывает настоящий прошлый запуск. При открытии OpenAI API не вызывается.</p>
+      <details class="quiet-details" id="agent-help" hidden><summary>Почему запуск недоступен</summary><p id="agent-tech-reason" class="subtle">Проверяем настройки сервера…</p></details>
+      <details class="quiet-details"><summary>Весь тестовый месяц</summary>
+        <p>Автономный проход 31.01–28.02: <strong>29 дневных AI-расчётов</strong>. При отсутствии модели агент обучает её на настроенной истории, сохраняет результаты и продолжает после сбоя.</p>
+        <button id="campaign-run" type="button" class="secondary" disabled>Пройти февраль автономно</button>
+        <p id="campaign-config" class="subtle">Проверяем серверные входы…</p>
+      </details>
+    </aside>
+  </div>
+  <section class="panel agent-panel" id="agent-panel" hidden aria-live="polite">
+    <div class="section-heading"><h2>Ход работы AI-агента</h2><span id="agent-state" class="badge" data-mode="running">Выполняется</span></div>
+    <p id="agent-caption" class="subtle"></p>
+    <div class="progress-row" id="campaign-progress-wrap" hidden><progress id="campaign-progress" max="29" value="0" aria-label="Прогресс расчёта тестового месяца"></progress><span id="campaign-progress-date"></span></div>
+    <p id="agent-summary" class="agent-summary" role="status"></p>
+    <details id="agent-steps" class="quiet-details"><summary>Подробные вызовы инструментов</summary><ol class="agent-journal" id="agent-events"></ol></details>
   </section>
-  <section class="panel" id="results" hidden>
-    <div class="section-heading"><h2>Прогноз мощности</h2><p class="note" id="horizon"></p></div>
-    <p class="note">Нормализованная мощность, шкала 0–1. Значение 0,5 — половина нормировочной шкалы; это не МВт и не МВт·ч.</p>
-    <div class="metrics">
-      <div class="metric"><small>Среднее по ветропарку</small><strong id="mean"></strong></div>
-      <div class="metric"><small>Максимум за 48 часов</small><strong id="maximum"></strong></div>
-      <div class="metric"><small>Наибольший часовой скачок</small><strong id="ramp"></strong></div>
-    </div>
-    <div class="legend"><span><i class="dot" style="background:#6dd7ce"></i>Турбина 1</span><span><i class="dot" style="background:#f8bf74"></i>Турбина 2</span><span><i class="dot" style="background:#b6a1fa"></i>Ветропарк · среднее</span></div>
-    <svg id="chart" viewBox="0 0 900 300" role="img" aria-label="График нормированной мощности за 48 часов"></svg>
-    <p class="note" id="analysis"></p>
-    <details class="passport" open>
-      <summary>Происхождение прогноза</summary>
-      <div class="meta"><span class="chip" id="training"></span><span class="chip" id="weather-run"></span><span class="chip" id="decision"></span><span class="chip" id="calibration"></span></div>
-      <p class="note" id="checks"></p>
-      <p class="note" id="weather-links"></p>
-      <p class="note">Для решения используется погодный выпуск за 12 часов до него. Это запас относительно типичной задержки публикации; точное время появления каждого выпуска в архиве не подтверждено.</p>
-    </details>
-  </section>
-  <section class="panel" id="table-panel" hidden>
-    <h2>Почасовые значения</h2>
+  <details class="panel details-panel" id="table-panel" hidden>
+    <summary>Почасовые значения · 48 часов</summary>
     <div class="table-wrap"><table><thead><tr><th>Время UTC</th><th>Турбина 1</th><th>Турбина 2</th><th>Среднее</th></tr></thead><tbody id="rows"></tbody></table></div>
-  </section>
-  <p class="note">29 ежедневных прогнозов · 672 часа февраля в CSV. Среднее рассчитано при допущении одинаковой мощности турбин. Фактические измерения февраля не предоставлены, поэтому февральская ошибка пока неизвестна.</p>
-  <p class="note">Погодные данные: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> / ECMWF, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Выбрано 48-часовое окно, ветер преобразован моделью в прогноз мощности. Применённые множители ветра указаны в происхождении прогноза.</p>
+  </details>
+  <footer class="footer-notes">
+    <p>Среднее рассчитано при допущении одинаковой мощности турбин. Февральская ошибка неизвестна: фактические измерения февраля не предоставлены.</p>
+    <p>Погода: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> / ECMWF, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Ветер преобразован моделью в прогноз мощности.</p>
+  </footer>
 </main>
 <script>
   const $ = id => document.getElementById(id);
   const keys = ['turbine_1_normalized_power', 'turbine_2_normalized_power', 'farm_equal_capacity_mean_normalized_power'];
-  const colors = ['#6dd7ce', '#f8bf74', '#b6a1fa'];
+  const colors = ['#0a7478', '#bb741b', '#8055a0'];
   const number = value => Number(value).toFixed(3).replace('.', ',');
   const stamp = value => value.slice(0, 16).replace('T', ' ');
   const shortStamp = value => `${value.slice(8, 10)}.${value.slice(5, 7)} ${value.slice(11, 16)}`;
@@ -130,6 +195,12 @@
   let shownRows = null;
   let busy = false;
   let agentConfig = null;
+  let lastEventSignature = '';
+  const resultModes = {
+    published: 'Опубликованный', recalculated: 'Пересчитан из архива',
+    agent: 'AI-расчёт', recorded: 'Запись запуска', campaign: 'Автономный проход',
+    unknown: 'Прогноз'
+  };
   const toolLabels = {
     inspect_inputs: 'Проверка входов', get_weather: 'Загрузка погоды',
     calculate_forecast: 'Расчёт прогноза', inspect_forecast: 'Проверка часов',
@@ -152,12 +223,19 @@
     $('agent-caption').textContent = '';
     $('agent-summary').textContent = '';
     $('agent-events').replaceChildren();
+    $('agent-steps').open = false;
+    $('campaign-progress-wrap').hidden = true;
+    lastEventSignature = '';
   }
   function showAgentEvents(events, limit = Infinity) {
     const list = $('agent-events');
     list.classList.toggle('compact', Number.isFinite(limit));
+    const visible = Array.isArray(events) ? events.slice(-limit) : [];
+    const signature = JSON.stringify(visible);
+    if (signature === lastEventSignature) return;
+    const openItems = new Set([...list.querySelectorAll('details[open]')].map(item => item.dataset.eventKey));
     const fragment = document.createDocumentFragment();
-    for (const event of Array.isArray(events) ? events.slice(-limit) : []) {
+    for (const [index, event] of visible.entries()) {
       const item = document.createElement('li');
       if (event.status === 'error') item.classList.add('error');
       const title = document.createElement('strong');
@@ -185,6 +263,8 @@
       if (event.result !== undefined) extras.result = event.result;
       if (Object.keys(extras).length) {
         const details = document.createElement('details');
+        details.dataset.eventKey = `${event.forecast_date || ''}:${event.step ?? index}:${event.tool || ''}`;
+        details.open = openItems.has(details.dataset.eventKey);
         const summary = document.createElement('summary');
         summary.textContent = 'Аргументы и результат';
         const pre = document.createElement('pre');
@@ -195,10 +275,23 @@
       fragment.append(item);
     }
     list.replaceChildren(fragment);
+    lastEventSignature = signature;
   }
   function showAgentReport(report, caption, eventLimit = Infinity) {
     $('agent-panel').hidden = false;
     $('agent-caption').textContent = caption;
+    const state = report.recorded ? 'recorded' : report.status || 'running';
+    $('agent-state').dataset.mode = state;
+    $('agent-state').textContent = ({running: 'Выполняется', completed: 'Завершено',
+      failed: 'Ошибка', recorded: 'Запись запуска'})[state] || 'Статус неизвестен';
+    const campaign = report.kind === 'campaign';
+    $('campaign-progress-wrap').hidden = !campaign;
+    if (campaign) {
+      $('campaign-progress').max = Number.isInteger(report.total_days) ? report.total_days : 29;
+      $('campaign-progress').value = Number.isInteger(report.completed_days) ? report.completed_days : 0;
+      const dated = Array.isArray(report.events) ? [...report.events].reverse().find(event => event.forecast_date) : null;
+      $('campaign-progress-date').textContent = dated ? `Дата: ${dated.forecast_date}` : 'Ожидание первого дня';
+    }
     showAgentEvents(report.events, eventLimit);
     $('agent-summary').textContent = report.summary || '';
   }
@@ -211,13 +304,17 @@
     try {
       agentConfig = await readJSON(await fetch('/api/agent/config'));
       $('agent-config').textContent = agentConfig.available
-        ? `AI-агент доступен · ${agentConfig.model || 'OpenAI'}`
-        : (agentConfig.reason || 'AI-агент сейчас недоступен.');
+        ? `Доступен для расчёта · ${agentConfig.model || 'OpenAI'}`
+        : 'AI-расчёт сейчас недоступен. Сохранённые прогнозы открываются без него.';
+      $('agent-help').hidden = !!agentConfig.available;
+      $('agent-tech-reason').textContent = agentConfig.reason || 'Запуск доступен на этом сервере.';
       $('agent-example').hidden = !agentConfig.example_date;
       $('campaign-config').textContent = agentConfig.campaign_available
         ? 'Серверные входы готовы.' : (agentConfig.campaign_reason || 'Автономный проход пока недоступен.');
     } catch (error) {
       $('agent-config').textContent = 'Не удалось проверить доступность AI-агента.';
+      $('agent-help').hidden = false;
+      $('agent-tech-reason').textContent = 'Проверка сервера не завершилась.';
       $('campaign-config').textContent = 'Не удалось проверить серверные входы.';
     } finally {
       setBusy(busy);
@@ -237,6 +334,8 @@
     const keepResult = shownDate === date;
     clearAgentReport();
     $('agent-panel').hidden = false;
+    $('agent-state').dataset.mode = 'running';
+    $('agent-state').textContent = 'Выполняется';
     $('agent-caption').textContent = `Новый расчёт на ${date} · ${agentConfig.model || 'OpenAI'}`;
     $('agent-summary').textContent = 'Агент готовит прогноз…';
     $('status').classList.remove('error');
@@ -261,12 +360,12 @@
         showAgentReport(state, `Новый расчёт на ${date} · ${agentConfig.model || 'OpenAI'}`);
         if (state.status === 'running') {
           $('agent-summary').textContent = state.summary || 'Агент работает…';
-          $('status').textContent = `Агент работает: ${Array.isArray(state.events) ? state.events.length : 0} шагов.`;
+          $('status').textContent = `Агент работает. Выполнено шагов: ${Array.isArray(state.events) ? state.events.length : 0}.`;
           continue;
         }
         if (state.status === 'completed') {
           if (!state.forecast || state.forecast.forecast_date !== date) throw new Error('Готовый прогноз отсутствует или относится к другой дате.');
-          render(state.forecast);
+          render(state.forecast, 'agent');
           $('status').textContent = `AI-расчёт на ${date}: 48 часов. Все времена — UTC.`;
           break;
         }
@@ -281,6 +380,8 @@
       const message = timedOut
         ? 'Ожидание превысило 8 минут. Состояние запуска на сервере неизвестно; проверьте его позже.'
         : (error.name === 'AbortError' ? 'Ожидание прервано; состояние запуска на сервере неизвестно.' : error.message);
+      $('agent-state').dataset.mode = 'failed';
+      $('agent-state').textContent = timedOut ? 'Ожидание истекло' : 'Ошибка';
       $('status').textContent = `${message}${keepResult ? ' Ниже сохранён предыдущий результат.' : ''}`;
       $('status').classList.add('error');
       $('agent-summary').textContent = message;
@@ -294,7 +395,12 @@
     const previousDate = shownDate;
     clearAgentReport();
     $('agent-panel').hidden = false;
+    $('agent-state').dataset.mode = 'running';
+    $('agent-state').textContent = 'Выполняется';
     $('agent-caption').textContent = 'Автономный проход: 0/29 дней';
+    $('campaign-progress-wrap').hidden = false;
+    $('campaign-progress').value = 0;
+    $('campaign-progress-date').textContent = 'Ожидание первого дня';
     $('agent-summary').textContent = 'Проверяем станцию и начинаем дневные расчёты…';
     $('status').classList.remove('error');
     $('status').textContent = 'Запускаем автономный проход 31.01–28.02…';
@@ -332,7 +438,7 @@
             throw new Error('Последний прогноз автономного прохода отсутствует или повреждён.');
           }
           $('date').value = forecast.forecast_date;
-          render(forecast);
+          render(forecast, 'campaign');
           $('status').textContent = `${caption}. Показан последний успешно сохранённый прогноз на ${forecast.forecast_date}.`;
           break;
         }
@@ -347,6 +453,8 @@
       const message = timedOut
         ? 'Ожидание превысило 30 минут. Сервер может продолжать проход; проверьте состояние позже.'
         : (error.name === 'AbortError' ? 'Ожидание прервано. Сервер может продолжать проход.' : error.message);
+      $('agent-state').dataset.mode = 'failed';
+      $('agent-state').textContent = timedOut ? 'Ожидание истекло' : 'Ошибка';
       $('status').textContent = `${message}${previousDate ? ' Предыдущий график сохранён.' : ''}`;
       $('status').classList.add('error');
       $('agent-summary').textContent = message;
@@ -367,7 +475,7 @@
         throw new Error('Запись запуска неполная или относится к другой дате.');
       }
       $('date').value = agentConfig.example_date;
-      render(report.forecast);
+      render(report.forecast, 'recorded');
       const timestamp = report.recorded_at || report.timestamp;
       const recordedTime = timestamp ? new Date(timestamp) : null;
       const recordedLabel = recordedTime && Number.isFinite(recordedTime.getTime())
@@ -408,8 +516,10 @@
       element('polyline', {points, fill: 'none', stroke: colors[index], 'stroke-width': index === 2 ? 3 : 2, 'stroke-dasharray': index === 2 ? '7 4' : 'none', 'stroke-linejoin': 'round'});
     });
   }
-  function render(data) {
+  function render(data, mode = 'published') {
     shownDate = data.forecast_date;
+    $('result-badge').dataset.mode = mode;
+    $('result-badge').textContent = resultModes[mode] || resultModes.published;
     $('horizon').textContent = `${shortStamp(data.forecast[0].time_utc)} — ${shortStamp(data.forecast[47].time_utc)} UTC`;
     $('decision').textContent = `Решение: ${stamp(data.decision_time_utc)} UTC`;
     $('weather-run').textContent = `Погодный выпуск: ${[...new Set(Object.values(data.weather_run_utc))].map(stamp).join(' · ')} UTC`;
@@ -463,8 +573,12 @@
       const response = await fetch(`/api/forecast?date=${encodeURIComponent(date)}&refresh=${refresh ? 1 : 0}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Ошибка расчёта');
-      render(data);
-      status.textContent = `${refresh ? 'Пересчитано из архива' : 'Опубликованный снимок'} на ${date}: ${data.forecast.length} часов для обеих турбин. Все времена — UTC.`;
+      const mode = data.delivery_mode === 'published_result' ? 'published'
+        : data.delivery_mode === 'recalculated' ? 'recalculated' : 'unknown';
+      render(data, mode);
+      const sourceLabel = mode === 'published' ? 'Опубликованный прогноз'
+        : mode === 'recalculated' ? 'Пересчитанный прогноз' : 'Прогноз';
+      status.textContent = `${sourceLabel} на ${date}: ${data.forecast.length} часов для обеих турбин. Все времена — UTC.`;
     } catch (error) {
       status.textContent = `${error.message}${keepResult ? ' Ниже сохранён предыдущий результат; обновление не выполнено.' : ''}`;
       status.classList.add('error');
@@ -479,12 +593,11 @@
   $('agent-example').addEventListener('click', loadAgentExample);
   $('date').addEventListener('change', () => {
     clearAgentReport();
-    $('status').classList.remove('error');
-    $('status').textContent = 'Дата изменена. Откройте опубликованный прогноз или запустите новый расчёт.';
     if (shownDate !== $('date').value) {
       $('results').hidden = true;
       $('table-panel').hidden = true;
     }
+    loadForecast(false);
   });
   new ResizeObserver(() => {
     if (shownRows && !$('results').hidden) renderChart(shownRows);
