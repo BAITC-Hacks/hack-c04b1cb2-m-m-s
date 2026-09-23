@@ -1,0 +1,63 @@
+{
+  "dates": [
+    "2026-01-15",
+    "2026-01-16",
+    "2026-01-17"
+  ],
+  "decision_time_utc": "06:00 UTC",
+  "target_window_utc": [
+    "2026-01-15T06:00:00Z",
+    "2026-01-18T05:00:00Z"
+  ],
+  "requested_target_hours": 72,
+  "run_rule": "fixed previous-day GFS 18 UTC cycle; forecast leads 12-35",
+  "utc_local_assumption_hours": 5,
+  "training_cutoff": "2025-12-31",
+  "source_csv_sha256": {
+    "turbine-1": "c4c341582fb2dd348b7187f0128cff265fe055f469413871ebb5db50eef58b5b",
+    "turbine-2": "820578cd18bb557cd30c2e102f3ae5a386dfc6c489a5a15743339c2b017305e5"
+  },
+  "turbines": {
+    "turbine-1": {
+      "gfs": {
+        "hours": 72,
+        "mae": 0.224643,
+        "rmse": 0.298697,
+        "bias_prediction_minus_actual": 0.219817
+      },
+      "ecmwf": {
+        "hours": 72,
+        "mae": 0.085571,
+        "rmse": 0.14623,
+        "bias_prediction_minus_actual": -0.030761
+      },
+      "ecmwf_x1_10": {
+        "hours": 72,
+        "mae": 0.077446,
+        "rmse": 0.136716,
+        "bias_prediction_minus_actual": 0.000631
+      }
+    },
+    "turbine-2": {
+      "gfs": {
+        "hours": 72,
+        "mae": 0.218625,
+        "rmse": 0.294049,
+        "bias_prediction_minus_actual": 0.21315
+      },
+      "ecmwf": {
+        "hours": 72,
+        "mae": 0.093691,
+        "rmse": 0.157335,
+        "bias_prediction_minus_actual": -0.032919
+      },
+      "ecmwf_x1_10": {
+        "hours": 72,
+        "mae": 0.084791,
+        "rmse": 0.149449,
+        "bias_prediction_minus_actual": -0.001616
+      }
+    }
+  },
+  "downloaded_bytes": 142679099
+}
