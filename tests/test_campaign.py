@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import csv
 import datetime as dt
 import hashlib
+import io
 import json
 import os
 import pathlib
@@ -15,7 +17,7 @@ from unittest import mock
 import forecast_agent
 import run_campaign as campaign
 from power_model import FIELDS, train
-from station_profile import DEFAULT_STATION, station_digest
+from station_profile import DEFAULT_STATION, load_station, station_digest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 FIRST = dt.date(2026, 1, 31)
@@ -334,6 +336,9 @@ class CampaignTests(unittest.TestCase):
     def test_prepared_models_run_two_days_without_training_and_resume_offline(self):
         ready_root = self.base / "ready-project"
         (ready_root / "models").mkdir(parents=True)
+        (ready_root / "stations").mkdir()
+        (ready_root / "stations/example.json").write_bytes((REPO / "stations/example.json").read_bytes())
+        station = load_station(ready_root / "stations/example.json")
         for name in ("power-curve-2026-01-30.json", "power-curve-2026-01-31.json"):
             (ready_root / "models" / name).write_bytes((REPO / "models" / name).read_bytes())
         before = {name: (ready_root / "models" / name).read_bytes()
@@ -345,7 +350,7 @@ class CampaignTests(unittest.TestCase):
         self.cursor = {}
         self.plans = {}
         self.attempts = {}
-        result = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+        result = campaign.run_campaign(root=ready_root, station=station,
             first_day=FIRST, days=2, output_dir=self.output)
         self.assertEqual(result["status"], "completed", result["summary"])
         self.assertEqual(result["completed_days"], 2)
@@ -356,15 +361,33 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(len(campaign_models), 2)
         for model_path in campaign_models:
             model = json.loads(model_path.read_text())
-            self.assertEqual(model["station"], DEFAULT_STATION)
-            self.assertEqual(model["station_sha256"], station_digest(DEFAULT_STATION))
+            self.assertEqual(model["station"], station)
+            self.assertEqual(model["station_sha256"], station_digest(station))
         calls = list(self.calls)
         with mock.patch.object(forecast_agent, "_response", side_effect=AssertionError("LLM called")):
-            resumed = campaign.run_campaign(root=ready_root, station=copy.deepcopy(DEFAULT_STATION),
+            resumed = campaign.run_campaign(root=ready_root, station=station,
                 first_day=FIRST, days=2, output_dir=self.output)
         self.assertEqual(resumed["status"], "completed", resumed["summary"])
         self.assertEqual(resumed["completed_days"], 2)
         self.assertEqual(self.calls, calls)
+
+    def test_cli_defaults_use_bundled_profile_without_training_configuration(self):
+        ready_root = self.base / "cli-project"
+        (ready_root / "models").mkdir(parents=True)
+        (ready_root / "stations").mkdir()
+        (ready_root / "stations/example.json").write_bytes((REPO / "stations/example.json").read_bytes())
+        for source in (REPO / "models").glob("power-curve-*.json"):
+            (ready_root / "models" / source.name).write_bytes(source.read_bytes())
+        with mock.patch.object(campaign, "__file__", str(ready_root / "run_campaign.py")), \
+                mock.patch.object(campaign.sys, "argv", ["run_campaign.py", "--days", "2",
+                                                         "--output-dir", str(self.output)]), \
+                mock.patch.dict(os.environ, {"OPENAI_API_KEY": "offline-test-key"}, clear=True), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(campaign.main(), 0)
+        report = json.loads((self.output / "campaign-report.json").read_text())
+        self.assertEqual(report["completed_days"], 2)
+        self.assertEqual(report["station"], load_station(ready_root / "stations/example.json"))
+        self.assertNotIn("train_model", [name for _day, name in self.calls])
 
     def test_prepared_source_change_invalidates_explicit_campaign_identity(self):
         ready_root = self.base / "changed-source-project"
@@ -425,6 +448,10 @@ class CampaignTests(unittest.TestCase):
     def test_prepared_mode_rejects_other_station_and_missing_or_invalid_model(self):
         with self.assertRaises(ValueError):
             campaign.load_prepared_models(REPO, STATION)
+        relocated = load_station(REPO / "stations/example.json")
+        relocated["locations"]["turbine-1"][0] += 0.001
+        with self.assertRaises(ValueError):
+            campaign.load_prepared_models(REPO, relocated)
         broken = self.base / "broken-project"
         (broken / "models").mkdir(parents=True)
         with self.assertRaises(OSError):

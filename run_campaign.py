@@ -36,10 +36,12 @@ def file_hash(path: pathlib.Path) -> str:
 
 
 def load_prepared_models(root: pathlib.Path, station: dict) -> dict[str, dict]:
-    """Load the published prepared models, only for their exact station profile."""
+    """Load prepared models for the competition turbines, preserving profile labels."""
     root = pathlib.Path(root)
     station = validate_station(station)
-    if station != validate_station(DEFAULT_STATION):
+    # The bundled example names this same farm differently. Labels identify the
+    # campaign workspace; the turbine coordinates determine model compatibility.
+    if station["locations"] != validate_station(DEFAULT_STATION)["locations"]:
         raise ValueError("Готовые модели доступны только для стандартной станции; для другой станции нужны CSV.")
     models = {}
     for cutoff in (dt.date(2026, 1, 30), dt.date(2026, 1, 31)):

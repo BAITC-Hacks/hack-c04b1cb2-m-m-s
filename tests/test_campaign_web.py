@@ -15,7 +15,7 @@ from unittest import mock
 
 import web
 import agent_settings
-from station_profile import DEFAULT_STATION
+import forecast_agent
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
@@ -26,7 +26,9 @@ class CampaignWebTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = pathlib.Path(self.temp.name)
         (self.root / "stations").mkdir()
-        (self.root / "stations/example.json").write_text(json.dumps(DEFAULT_STATION))
+        station_path = REPO / "stations/example.json"
+        (self.root / "stations/example.json").write_bytes(station_path.read_bytes())
+        self.station = json.loads(station_path.read_text())
         (self.root / "models").mkdir()
         for path in (REPO / "models").glob("power-curve-*.json"):
             (self.root / "models" / path.name).write_bytes(path.read_bytes())
@@ -79,7 +81,7 @@ class CampaignWebTests(unittest.TestCase):
 
     def report(self, **kwargs):
         return {"status": "completed", "summary": "29 дней обработаны", "events": [],
-                "station": DEFAULT_STATION, "completed_days": 29, "total_days": 29,
+                "station": self.station, "completed_days": 29, "total_days": 29,
                 "forecast": self.forecast}
 
     def test_config_missing_key_csv_and_bad_profile_disables_campaign(self):
@@ -113,7 +115,22 @@ class CampaignWebTests(unittest.TestCase):
                     self.assertEqual(code, 202)
                     self.wait_status(started["job_id"], "completed")
                 self.assertIsNone(run.call_args.kwargs["input_dir"])
-                self.assertEqual(run.call_args.kwargs["station"], DEFAULT_STATION)
+                self.assertEqual(run.call_args.kwargs["station"], self.station)
+
+    def test_real_settings_helpers_allow_prepared_campaign_with_only_openai_key(self):
+        with mock.patch.object(web, "load_agent_environment", agent_settings.load_agent_environment), \
+                mock.patch.object(web, "agent_available", forecast_agent.agent_available), \
+                mock.patch.dict(os.environ, {"OPENAI_API_KEY": "offline-test-placeholder"}, clear=True):
+            code, config = self.request("GET", "/api/agent/config")
+            self.assertEqual(code, 200)
+            self.assertTrue(config["campaign_available"], config["campaign_reason"])
+            self.assertEqual(config["campaign_mode"], "prepared_models")
+            with mock.patch.object(web, "run_campaign_job", side_effect=self.report) as run:
+                code, started = self.request("POST", "/api/campaign", {})
+                self.assertEqual(code, 202)
+                self.wait_status(started["job_id"], "completed")
+            self.assertIsNone(run.call_args.kwargs["input_dir"])
+            self.assertEqual(run.call_args.kwargs["station"], self.station)
 
     def test_prepared_mode_rejects_missing_or_corrupt_models_and_other_station(self):
         path = self.root / "models/power-curve-2026-01-31.json"
@@ -130,7 +147,7 @@ class CampaignWebTests(unittest.TestCase):
                 self.assertEqual(self.request("POST", "/api/campaign", {})[0], 400)
                 self.assertNotIn(str(self.root), config["campaign_reason"])
             path.write_bytes(original)
-            station = json.loads(json.dumps(DEFAULT_STATION))
+            station = json.loads(json.dumps(self.station))
             station["locations"]["turbine-1"][0] = 44.125
             (self.root / "stations/example.json").write_text(json.dumps(station))
             self.assertFalse(self.request("GET", "/api/agent/config")[1]["campaign_available"])
@@ -146,14 +163,14 @@ class CampaignWebTests(unittest.TestCase):
         def campaign(**kwargs):
             self.assertEqual(kwargs["root"], self.root)
             self.assertEqual(kwargs["input_dir"], self.csv_dir)
-            self.assertEqual(kwargs["station"], DEFAULT_STATION)
+            self.assertEqual(kwargs["station"], self.station)
             kwargs["on_event"]({"step": 1, "tool": "campaign_day", "status": "ok",
                                 "detail": "День завершён", "forecast_date": "2026-01-31"})
             kwargs["on_event"]({"step": 2, "tool": "campaign_retry", "status": "start",
                                 "detail": "День 1/29, попытка 2/2.", "forecast_date": "2026-01-31"})
             kwargs["on_event"]({"step": 3, "tool": "inspect_station", "status": "ok",
                                 "detail": "Инструмент выполнен.", "forecast_date": "2026-01-31",
-                                "result": {"station": DEFAULT_STATION, "training_cutoff": "2026-01-30",
+                                "result": {"station": self.station, "training_cutoff": "2026-01-30",
                                            "model_available": False, "training_configured": True,
                                            "private_path": "/private/measurements"}})
             kwargs["on_event"]({"step": 4, "tool": "get_weather", "status": "ok",
@@ -175,11 +192,11 @@ class CampaignWebTests(unittest.TestCase):
             self.assertEqual(code, 200)
             self.assertEqual(state["kind"], "campaign")
             self.assertEqual(state["status"], "running")
-            self.assertEqual(state["station"]["name"], DEFAULT_STATION["name"])
+            self.assertEqual(state["station"]["name"], self.station["name"])
             self.assertEqual(state["completed_days"], 1)
             self.assertEqual(state["events"][0]["forecast_date"], "2026-01-31")
             self.assertEqual(state["events"][1]["detail"], "День 1/29, попытка 2/2.")
-            self.assertEqual(state["events"][2]["result"]["station_name"], DEFAULT_STATION["name"])
+            self.assertEqual(state["events"][2]["result"]["station_name"], self.station["name"])
             self.assertEqual(state["events"][3]["result"]["hours"], 48)
             self.assertEqual(state["events"][3]["arguments"], {"turbine": "turbine-1", "refresh": False})
             self.assertNotIn("/private", json.dumps(state))
@@ -192,7 +209,7 @@ class CampaignWebTests(unittest.TestCase):
 
     def test_failed_report_does_not_expose_partial_forecast_as_complete(self):
         partial = {"status": "failed", "summary": "private/path/detail", "events": [],
-                   "station": DEFAULT_STATION, "completed_days": 7, "total_days": 29,
+                   "station": self.station, "completed_days": 7, "total_days": 29,
                    "forecast": self.forecast}
         with mock.patch.object(web, "run_campaign_job", return_value=partial):
             code, started = self.request("POST", "/api/campaign", {})
