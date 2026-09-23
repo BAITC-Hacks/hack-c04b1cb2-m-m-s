@@ -22,6 +22,7 @@
     button:hover { background: #93eee5; }
     button.secondary { background: #294159; color: #e9f1fa; border: 1px solid #45617b; }
     button.secondary:hover { background: #36516a; }
+    a.download { color: #6dd7ce; align-self: center; font-weight: 650; }
     button:disabled { opacity: .6; cursor: wait; }
     .status { margin: 16px 0 0; min-height: 24px; }
     .status.error { color: #ffad9e; }
@@ -57,6 +58,7 @@
       <label>Дата расчёта (UTC)<input id="date" type="date" min="2026-01-31" max="2026-02-28" value="2026-02-01" required></label>
       <button id="run" type="button">Показать прогноз</button>
       <button id="refresh" type="button" class="secondary">Пересчитать из архива</button>
+      <a class="download" href="/download/february-hourly.csv" download="february-hourly.csv">Скачать весь февраль CSV</a>
     </div>
     <p id="status" class="status" role="status" aria-live="polite">Выберите дату и откройте сохранённый прогноз.</p>
   </section>

@@ -14,6 +14,7 @@ from run_forecast import combine
 
 ROOT = pathlib.Path(__file__).resolve().parent
 HTML = ROOT / "static" / "index.html"
+FEBRUARY_CSV = ROOT / "results" / "february-hourly.csv"
 MODELS = ROOT / "models"
 CACHE = ROOT / "weather-cache"
 RESULTS = ROOT / "results"
@@ -40,6 +41,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(200, HTML.read_bytes(), "text/html; charset=utf-8")
             except OSError as exc:
                 self.json_response(500, {"error": f"Не удалось открыть страницу: {exc}"})
+            return
+        if parsed.path == "/download/february-hourly.csv":
+            try:
+                self.respond(200, FEBRUARY_CSV.read_bytes(), "text/csv; charset=utf-8")
+            except OSError as exc:
+                self.json_response(500, {"error": f"Не удалось открыть CSV: {exc}"})
             return
         if parsed.path != "/api/forecast":
             self.json_response(404, {"error": "Маршрут не найден"})
