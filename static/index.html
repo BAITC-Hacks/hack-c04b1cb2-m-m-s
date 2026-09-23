@@ -20,6 +20,8 @@
     input { color: #e9f1fa; background: #0d1726; border: 1px solid #45617b; }
     button { cursor: pointer; background: #6dd7ce; color: #082022; border: 0; font-weight: 750; }
     button:hover { background: #93eee5; }
+    button.secondary { background: #294159; color: #e9f1fa; border: 1px solid #45617b; }
+    button.secondary:hover { background: #36516a; }
     button:disabled { opacity: .6; cursor: wait; }
     .status { margin: 16px 0 0; min-height: 24px; }
     .status.error { color: #ffad9e; }
@@ -49,17 +51,18 @@
 <main>
   <div class="eyebrow">Ветропарк · январь–февраль 2026</div>
   <h1>Почасовой прогноз выработки</h1>
-  <p>48 часов для двух турбин на основе архивного прогноза погоды ECMWF. Значения нормированы от 0 до 1 и не являются энергией в МВт·ч.</p>
+  <p>48 часов для двух турбин на основе архивного прогноза погоды ECMWF. Опубликованные результаты открываются без интернета; повторный расчёт заново обращается к погодному архиву. Значения нормированы от 0 до 1 и не являются энергией в МВт·ч.</p>
   <section class="panel">
     <div class="controls">
       <label>Дата расчёта (UTC)<input id="date" type="date" min="2026-01-31" max="2026-02-28" value="2026-02-01" required></label>
-      <button id="run" type="button">Рассчитать</button>
+      <button id="run" type="button">Показать прогноз</button>
+      <button id="refresh" type="button" class="secondary">Пересчитать из архива</button>
     </div>
-    <p id="status" class="status" role="status" aria-live="polite">Выберите дату и запустите расчёт.</p>
+    <p id="status" class="status" role="status" aria-live="polite">Выберите дату и откройте сохранённый прогноз.</p>
   </section>
   <section class="panel" id="results" hidden>
     <h2>Результат</h2>
-    <div class="meta"><span class="chip" id="decision"></span><span class="chip" id="weather-run"></span><span class="chip" id="training"></span></div>
+    <div class="meta"><span class="chip" id="decision"></span><span class="chip" id="weather-run"></span><span class="chip" id="training"></span><span class="chip" id="calibration"></span></div>
     <div class="metrics">
       <div class="metric"><small>Среднее по ветропарку</small><strong id="mean"></strong></div>
       <div class="metric"><small>Максимум за 48 часов</small><strong id="maximum"></strong></div>
@@ -108,10 +111,12 @@
     $('decision').textContent = `Расчёт: ${data.decision_time_utc}`;
     $('weather-run').textContent = `Погодный запуск: ${[...new Set(Object.values(data.weather_run_utc))].join(' · ')}`;
     $('training').textContent = `Обучено по ${data.training_cutoff_inclusive}`;
+    $('calibration').textContent = `Калибровка ветра: ${Object.values(data.forecast_wind_scale).map(value => `×${value.toFixed(2)}`).join(' · ')}`;
     $('mean').textContent = number(data.analysis.mean_normalized_power);
     $('maximum').textContent = number(data.analysis.maximum_normalized_power);
     $('ramp').textContent = number(data.analysis.largest_hourly_ramp);
-    $('analysis').textContent = `Минимум ${number(data.analysis.minimum_normalized_power)}, максимум ${number(data.analysis.maximum_normalized_power)}. Проверено: ${data.analysis.checks.join('; ')}.`;
+    const signals = data.analysis.signals.length ? data.analysis.signals.join('; ') : 'Пороговых сигналов нет';
+    $('analysis').textContent = `Минимум ${number(data.analysis.minimum_normalized_power)}, максимум ${number(data.analysis.maximum_normalized_power)}. Первые 24 ч: ${number(data.analysis.first_24h_mean)}, вторые 24 ч: ${number(data.analysis.second_24h_mean)}. ${signals}. Проверено: ${data.analysis.checks.join('; ')}.`;
     renderChart(data.forecast);
     const fragment = document.createDocumentFragment();
     for (const row of data.forecast) {
@@ -127,27 +132,31 @@
     $('results').hidden = false;
     $('table-panel').hidden = false;
   }
-  $('run').addEventListener('click', async () => {
+  async function loadForecast(refresh) {
     const date = $('date').value;
     const status = $('status');
     status.classList.remove('error');
     $('results').hidden = true;
     $('table-panel').hidden = true;
     $('run').disabled = true;
-    status.textContent = 'Загружаем архив погоды и рассчитываем прогноз…';
+    $('refresh').disabled = true;
+    status.textContent = refresh ? 'Обновляем архив погоды и пересчитываем прогноз…' : 'Открываем сохранённый прогноз…';
     try {
-      const response = await fetch(`/api/forecast?date=${encodeURIComponent(date)}`);
+      const response = await fetch(`/api/forecast?date=${encodeURIComponent(date)}&refresh=${refresh ? 1 : 0}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Ошибка расчёта');
       render(data);
-      status.textContent = `Готово: ${data.forecast.length} почасовых значений для обеих турбин.`;
+      status.textContent = `${refresh ? 'Пересчитано' : 'Опубликованный результат'}: ${data.forecast.length} почасовых значений для обеих турбин.`;
     } catch (error) {
       status.textContent = error.message;
       status.classList.add('error');
     } finally {
       $('run').disabled = false;
+      $('refresh').disabled = false;
     }
-  });
+  }
+  $('run').addEventListener('click', () => loadForecast(false));
+  $('refresh').addEventListener('click', () => loadForecast(true));
 </script>
 </body>
 </html>

@@ -1,0 +1,328 @@
+{
+  "forecast_date": "2026-02-22",
+  "decision_time_utc": "2026-02-22T06:00:00Z",
+  "training_cutoff_inclusive": "2026-01-31",
+  "forecast_wind_scale": {
+    "turbine-1": 1.1,
+    "turbine-2": 1.1
+  },
+  "weather_run_utc": {
+    "turbine-1": "2026-02-21T18:00:00Z",
+    "turbine-2": "2026-02-21T18:00:00Z"
+  },
+  "weather_request_urls": {
+    "turbine-1": "https://single-runs-api.open-meteo.com/v1/forecast?latitude=43.64515&longitude=78.535604&hourly=wind_speed_10m%2Cwind_speed_100m%2Ctemperature_2m&models=ecmwf_ifs&run=2026-02-21T18%3A00&timezone=UTC&forecast_days=3&wind_speed_unit=ms",
+    "turbine-2": "https://single-runs-api.open-meteo.com/v1/forecast?latitude=43.643198&longitude=78.538828&hourly=wind_speed_10m%2Cwind_speed_100m%2Ctemperature_2m&models=ecmwf_ifs&run=2026-02-21T18%3A00&timezone=UTC&forecast_days=3&wind_speed_unit=ms"
+  },
+  "output_unit": "normalized active power (0..1)",
+  "farm_aggregation": "arithmetic mean of two turbine normalized outputs; equal-capacity assumption",
+  "analysis": {
+    "mean_normalized_power": 0.463558,
+    "minimum_normalized_power": 0.011138,
+    "maximum_normalized_power": 0.937397,
+    "largest_hourly_ramp": 0.263377,
+    "largest_hourly_ramp_ending_utc": "2026-02-24T03:00",
+    "low_power_hours_below_0_1": 12,
+    "first_24h_mean": 0.26405,
+    "second_24h_mean": 0.663066,
+    "signals": [
+      "Изменение мощности ≥ 0,2 перед часом 2026-02-24T03:00 UTC",
+      "Низкая прогнозная мощность (< 0,1) в 12 часах"
+    ],
+    "checks": [
+      "48 последовательных часов UTC",
+      "время турбин согласовано",
+      "мощность в диапазоне 0–1"
+    ]
+  },
+  "forecast": [
+    {
+      "time_utc": "2026-02-22T06:00",
+      "turbine_1_normalized_power": 0.798831,
+      "turbine_2_normalized_power": 0.787881,
+      "farm_equal_capacity_mean_normalized_power": 0.793356
+    },
+    {
+      "time_utc": "2026-02-22T07:00",
+      "turbine_1_normalized_power": 0.903899,
+      "turbine_2_normalized_power": 0.896794,
+      "farm_equal_capacity_mean_normalized_power": 0.900346
+    },
+    {
+      "time_utc": "2026-02-22T08:00",
+      "turbine_1_normalized_power": 0.903899,
+      "turbine_2_normalized_power": 0.896794,
+      "farm_equal_capacity_mean_normalized_power": 0.900346
+    },
+    {
+      "time_utc": "2026-02-22T09:00",
+      "turbine_1_normalized_power": 0.847946,
+      "turbine_2_normalized_power": 0.839421,
+      "farm_equal_capacity_mean_normalized_power": 0.843684
+    },
+    {
+      "time_utc": "2026-02-22T10:00",
+      "turbine_1_normalized_power": 0.698421,
+      "turbine_2_normalized_power": 0.684276,
+      "farm_equal_capacity_mean_normalized_power": 0.691348
+    },
+    {
+      "time_utc": "2026-02-22T11:00",
+      "turbine_1_normalized_power": 0.54345,
+      "turbine_2_normalized_power": 0.530501,
+      "farm_equal_capacity_mean_normalized_power": 0.536976
+    },
+    {
+      "time_utc": "2026-02-22T12:00",
+      "turbine_1_normalized_power": 0.513597,
+      "turbine_2_normalized_power": 0.500769,
+      "farm_equal_capacity_mean_normalized_power": 0.507183
+    },
+    {
+      "time_utc": "2026-02-22T13:00",
+      "turbine_1_normalized_power": 0.321304,
+      "turbine_2_normalized_power": 0.309769,
+      "farm_equal_capacity_mean_normalized_power": 0.315536
+    },
+    {
+      "time_utc": "2026-02-22T14:00",
+      "turbine_1_normalized_power": 0.143362,
+      "turbine_2_normalized_power": 0.136825,
+      "farm_equal_capacity_mean_normalized_power": 0.140093
+    },
+    {
+      "time_utc": "2026-02-22T15:00",
+      "turbine_1_normalized_power": 0.069346,
+      "turbine_2_normalized_power": 0.065629,
+      "farm_equal_capacity_mean_normalized_power": 0.067488
+    },
+    {
+      "time_utc": "2026-02-22T16:00",
+      "turbine_1_normalized_power": 0.052349,
+      "turbine_2_normalized_power": 0.049407,
+      "farm_equal_capacity_mean_normalized_power": 0.050878
+    },
+    {
+      "time_utc": "2026-02-22T17:00",
+      "turbine_1_normalized_power": 0.034658,
+      "turbine_2_normalized_power": 0.032673,
+      "farm_equal_capacity_mean_normalized_power": 0.033666
+    },
+    {
+      "time_utc": "2026-02-22T18:00",
+      "turbine_1_normalized_power": 0.018808,
+      "turbine_2_normalized_power": 0.017743,
+      "farm_equal_capacity_mean_normalized_power": 0.018276
+    },
+    {
+      "time_utc": "2026-02-22T19:00",
+      "turbine_1_normalized_power": 0.019605,
+      "turbine_2_normalized_power": 0.018496,
+      "farm_equal_capacity_mean_normalized_power": 0.01905
+    },
+    {
+      "time_utc": "2026-02-22T20:00",
+      "turbine_1_normalized_power": 0.014485,
+      "turbine_2_normalized_power": 0.013667,
+      "farm_equal_capacity_mean_normalized_power": 0.014076
+    },
+    {
+      "time_utc": "2026-02-22T21:00",
+      "turbine_1_normalized_power": 0.013808,
+      "turbine_2_normalized_power": 0.013045,
+      "farm_equal_capacity_mean_normalized_power": 0.013427
+    },
+    {
+      "time_utc": "2026-02-22T22:00",
+      "turbine_1_normalized_power": 0.019377,
+      "turbine_2_normalized_power": 0.018281,
+      "farm_equal_capacity_mean_normalized_power": 0.018829
+    },
+    {
+      "time_utc": "2026-02-22T23:00",
+      "turbine_1_normalized_power": 0.012679,
+      "turbine_2_normalized_power": 0.01201,
+      "farm_equal_capacity_mean_normalized_power": 0.012344
+    },
+    {
+      "time_utc": "2026-02-23T00:00",
+      "turbine_1_normalized_power": 0.011397,
+      "turbine_2_normalized_power": 0.01088,
+      "farm_equal_capacity_mean_normalized_power": 0.011138
+    },
+    {
+      "time_utc": "2026-02-23T01:00",
+      "turbine_1_normalized_power": 0.019491,
+      "turbine_2_normalized_power": 0.018388,
+      "farm_equal_capacity_mean_normalized_power": 0.01894
+    },
+    {
+      "time_utc": "2026-02-23T02:00",
+      "turbine_1_normalized_power": 0.09536,
+      "turbine_2_normalized_power": 0.090636,
+      "farm_equal_capacity_mean_normalized_power": 0.092998
+    },
+    {
+      "time_utc": "2026-02-23T03:00",
+      "turbine_1_normalized_power": 0.124335,
+      "turbine_2_normalized_power": 0.118492,
+      "farm_equal_capacity_mean_normalized_power": 0.121414
+    },
+    {
+      "time_utc": "2026-02-23T04:00",
+      "turbine_1_normalized_power": 0.104045,
+      "turbine_2_normalized_power": 0.098985,
+      "farm_equal_capacity_mean_normalized_power": 0.101515
+    },
+    {
+      "time_utc": "2026-02-23T05:00",
+      "turbine_1_normalized_power": 0.117072,
+      "turbine_2_normalized_power": 0.111509,
+      "farm_equal_capacity_mean_normalized_power": 0.11429
+    },
+    {
+      "time_utc": "2026-02-23T06:00",
+      "turbine_1_normalized_power": 0.232983,
+      "turbine_2_normalized_power": 0.223565,
+      "farm_equal_capacity_mean_normalized_power": 0.228274
+    },
+    {
+      "time_utc": "2026-02-23T07:00",
+      "turbine_1_normalized_power": 0.316038,
+      "turbine_2_normalized_power": 0.304617,
+      "farm_equal_capacity_mean_normalized_power": 0.310327
+    },
+    {
+      "time_utc": "2026-02-23T08:00",
+      "turbine_1_normalized_power": 0.40906,
+      "turbine_2_normalized_power": 0.396596,
+      "farm_equal_capacity_mean_normalized_power": 0.402828
+    },
+    {
+      "time_utc": "2026-02-23T09:00",
+      "turbine_1_normalized_power": 0.513597,
+      "turbine_2_normalized_power": 0.500769,
+      "farm_equal_capacity_mean_normalized_power": 0.507183
+    },
+    {
+      "time_utc": "2026-02-23T10:00",
+      "turbine_1_normalized_power": 0.700059,
+      "turbine_2_normalized_power": 0.685946,
+      "farm_equal_capacity_mean_normalized_power": 0.693002
+    },
+    {
+      "time_utc": "2026-02-23T11:00",
+      "turbine_1_normalized_power": 0.75411,
+      "turbine_2_normalized_power": 0.741036,
+      "farm_equal_capacity_mean_normalized_power": 0.747573
+    },
+    {
+      "time_utc": "2026-02-23T12:00",
+      "turbine_1_normalized_power": 0.88838,
+      "turbine_2_normalized_power": 0.881177,
+      "farm_equal_capacity_mean_normalized_power": 0.884778
+    },
+    {
+      "time_utc": "2026-02-23T13:00",
+      "turbine_1_normalized_power": 0.925804,
+      "turbine_2_normalized_power": 0.918855,
+      "farm_equal_capacity_mean_normalized_power": 0.92233
+    },
+    {
+      "time_utc": "2026-02-23T14:00",
+      "turbine_1_normalized_power": 0.940755,
+      "turbine_2_normalized_power": 0.93404,
+      "farm_equal_capacity_mean_normalized_power": 0.937397
+    },
+    {
+      "time_utc": "2026-02-23T15:00",
+      "turbine_1_normalized_power": 0.936624,
+      "turbine_2_normalized_power": 0.929762,
+      "farm_equal_capacity_mean_normalized_power": 0.933193
+    },
+    {
+      "time_utc": "2026-02-23T16:00",
+      "turbine_1_normalized_power": 0.939149,
+      "turbine_2_normalized_power": 0.932323,
+      "farm_equal_capacity_mean_normalized_power": 0.935736
+    },
+    {
+      "time_utc": "2026-02-23T17:00",
+      "turbine_1_normalized_power": 0.918771,
+      "turbine_2_normalized_power": 0.911766,
+      "farm_equal_capacity_mean_normalized_power": 0.915269
+    },
+    {
+      "time_utc": "2026-02-23T18:00",
+      "turbine_1_normalized_power": 0.852395,
+      "turbine_2_normalized_power": 0.84406,
+      "farm_equal_capacity_mean_normalized_power": 0.848228
+    },
+    {
+      "time_utc": "2026-02-23T19:00",
+      "turbine_1_normalized_power": 0.857956,
+      "turbine_2_normalized_power": 0.84986,
+      "farm_equal_capacity_mean_normalized_power": 0.853908
+    },
+    {
+      "time_utc": "2026-02-23T20:00",
+      "turbine_1_normalized_power": 0.716438,
+      "turbine_2_normalized_power": 0.70264,
+      "farm_equal_capacity_mean_normalized_power": 0.709539
+    },
+    {
+      "time_utc": "2026-02-23T21:00",
+      "turbine_1_normalized_power": 0.636318,
+      "turbine_2_normalized_power": 0.622558,
+      "farm_equal_capacity_mean_normalized_power": 0.629438
+    },
+    {
+      "time_utc": "2026-02-23T22:00",
+      "turbine_1_normalized_power": 0.624118,
+      "turbine_2_normalized_power": 0.610493,
+      "farm_equal_capacity_mean_normalized_power": 0.617305
+    },
+    {
+      "time_utc": "2026-02-23T23:00",
+      "turbine_1_normalized_power": 0.683375,
+      "turbine_2_normalized_power": 0.669094,
+      "farm_equal_capacity_mean_normalized_power": 0.676234
+    },
+    {
+      "time_utc": "2026-02-24T00:00",
+      "turbine_1_normalized_power": 0.669432,
+      "turbine_2_normalized_power": 0.655305,
+      "farm_equal_capacity_mean_normalized_power": 0.662369
+    },
+    {
+      "time_utc": "2026-02-24T01:00",
+      "turbine_1_normalized_power": 0.713162,
+      "turbine_2_normalized_power": 0.699301,
+      "farm_equal_capacity_mean_normalized_power": 0.706231
+    },
+    {
+      "time_utc": "2026-02-24T02:00",
+      "turbine_1_normalized_power": 0.690232,
+      "turbine_2_normalized_power": 0.675929,
+      "farm_equal_capacity_mean_normalized_power": 0.68308
+    },
+    {
+      "time_utc": "2026-02-24T03:00",
+      "turbine_1_normalized_power": 0.425983,
+      "turbine_2_normalized_power": 0.413423,
+      "farm_equal_capacity_mean_normalized_power": 0.419703
+    },
+    {
+      "time_utc": "2026-02-24T04:00",
+      "turbine_1_normalized_power": 0.361584,
+      "turbine_2_normalized_power": 0.349556,
+      "farm_equal_capacity_mean_normalized_power": 0.35557
+    },
+    {
+      "time_utc": "2026-02-24T05:00",
+      "turbine_1_normalized_power": 0.339963,
+      "turbine_2_normalized_power": 0.328196,
+      "farm_equal_capacity_mean_normalized_power": 0.334079
+    }
+  ]
+}

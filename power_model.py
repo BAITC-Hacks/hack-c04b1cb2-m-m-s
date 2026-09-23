@@ -153,6 +153,9 @@ def predict(model: dict, weather: dict) -> dict:
     if not isinstance(rows, list) or len(rows) not in (24, 48):
         raise ValueError("weather forecast must contain 24 or 48 hourly records")
     curve = model["turbines"][turbine]["curve"]
+    wind_scale = model["turbines"][turbine].get("forecast_wind_scale", 1.0)
+    if not math.isfinite(wind_scale) or not 0.5 <= wind_scale <= 1.5:
+        raise ValueError("invalid forecast wind calibration")
     result = []
     previous = None
     for row in rows:
@@ -162,7 +165,7 @@ def predict(model: dict, weather: dict) -> dict:
         previous = time
         wind = float(row["wind_speed_100m"])
         result.append({"time_utc": row["time_utc"], "wind_speed_100m_ms": wind,
-                       "normalized_power": curve_value(curve, wind)})
+                       "normalized_power": curve_value(curve, wind * wind_scale)})
     return {
         "turbine": turbine,
         "decision_time_utc": weather.get("decision_time_utc"),
@@ -170,6 +173,7 @@ def predict(model: dict, weather: dict) -> dict:
         "weather_request_url": weather.get("request_url"),
         "power_model_type": model["model_type"],
         "power_model_trained_through_inclusive": model["trained_through_inclusive"],
+        "forecast_wind_scale": wind_scale,
         "forecast": result,
     }
 

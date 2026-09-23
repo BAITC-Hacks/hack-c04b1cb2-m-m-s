@@ -35,7 +35,10 @@ def actual_hours(path: pathlib.Path, first: dt.date, last: dt.date) -> dict[dt.d
 def predicted_hours(model: dict, weather_dir: pathlib.Path, turbine: str,
                     first: dt.date, last: dt.date) -> dict[dt.datetime, float]:
     result: dict[dt.datetime, tuple[dt.datetime, float]] = {}
-    day = first
+    # Hours before the first day's 06:00 UTC decision may already have a
+    # forecast from the preceding day's 48-hour horizon.
+    preceding = first - dt.timedelta(days=1)
+    day = preceding if (weather_dir / f"{preceding}-{turbine}.json").exists() else first
     while day <= last:
         path = weather_dir / f"{day}-{turbine}.json"
         payload = predict(model, json.loads(path.read_text()))

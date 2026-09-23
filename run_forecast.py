@@ -39,11 +39,25 @@ def combine(day: dt.date, model: dict, weather: dict[str, dict]) -> dict:
     values = [row["farm_equal_capacity_mean_normalized_power"] for row in combined]
     if any(not 0 <= value <= 1 for value in values):
         raise ValueError("predicted normalized power outside 0..1")
+    ramps = [abs(values[index] - values[index - 1]) for index in range(1, len(values))]
+    largest_ramp = max(ramps)
+    largest_ramp_index = ramps.index(largest_ramp) + 1
+    low_hours = sum(value < 0.1 for value in values)
+    signals = []
+    if largest_ramp >= 0.2:
+        signals.append(f"Изменение мощности ≥ 0,2 перед часом {combined[largest_ramp_index]['time_utc']} UTC")
+    if low_hours >= 6:
+        signals.append(f"Низкая прогнозная мощность (< 0,1) в {low_hours} часах")
     analysis = {
         "mean_normalized_power": round(statistics.mean(values), 6),
         "minimum_normalized_power": min(values),
         "maximum_normalized_power": max(values),
-        "largest_hourly_ramp": round(max(abs(b - a) for a, b in zip(values, values[1:])), 6),
+        "largest_hourly_ramp": round(largest_ramp, 6),
+        "largest_hourly_ramp_ending_utc": combined[largest_ramp_index]["time_utc"],
+        "low_power_hours_below_0_1": low_hours,
+        "first_24h_mean": round(statistics.mean(values[:24]), 6),
+        "second_24h_mean": round(statistics.mean(values[24:]), 6),
+        "signals": signals,
         "checks": ["48 последовательных часов UTC", "время турбин согласовано",
                    "мощность в диапазоне 0–1"],
     }
@@ -51,6 +65,8 @@ def combine(day: dt.date, model: dict, weather: dict[str, dict]) -> dict:
         "forecast_date": day.isoformat(),
         "decision_time_utc": weather["turbine-1"]["decision_time_utc"],
         "training_cutoff_inclusive": model["trained_through_inclusive"],
+        "forecast_wind_scale": {name: model["turbines"][name].get("forecast_wind_scale", 1.0)
+                                for name in weather},
         "weather_run_utc": {name: data["model_run_utc"] for name, data in weather.items()},
         "weather_request_urls": {name: data["request_url"] for name, data in weather.items()},
         "output_unit": "normalized active power (0..1)",
