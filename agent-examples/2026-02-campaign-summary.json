@@ -1,0 +1,1519 @@
+{
+  "recorded": true,
+  "recorded_at_utc": "2026-09-23T11:58:30.519988+00:00",
+  "kind": "autonomous_campaign_evidence",
+  "station": {
+    "id": "example-wind-farm",
+    "name": "Пример ветропарка",
+    "locations": {
+      "turbine-1": [
+        43.64515,
+        78.535604
+      ],
+      "turbine-2": [
+        43.643198,
+        78.538828
+      ]
+    }
+  },
+  "period": [
+    "2026-01-31",
+    "2026-02-28"
+  ],
+  "status": "completed",
+  "completed_days": 29,
+  "forecast_hours_including_overlap": 1392,
+  "method": "Local station-specific training; real OpenAI tool calls for all 29 historical days. First two days completed in an initial run; the next run resumed them without OpenAI and continued the remaining 27 days.",
+  "limitations": "Uncalibrated station-specific curves; no automatic transfer of competition wind correction. No claim of February accuracy or validation at a second real wind farm.",
+  "usage": {
+    "input_tokens": 326625,
+    "output_tokens": 8996,
+    "total_tokens": 335621
+  },
+  "days": [
+    {
+      "forecast_date": "2026-01-31",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:52:00.507464+00:00",
+      "finished_at_utc": "2026-09-23T11:52:17.741943+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-30",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "train_model",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "37ef61abd2b3e24cc9e3ceda2ca8aba521cdd6effb04a1177e3c0211a302344f",
+      "forecast_sha256": "f84199eea12a0952e34411b09303352b090aff283e178d907409e078879e0d47",
+      "usage": {
+        "input_tokens": 11698,
+        "output_tokens": 340,
+        "total_tokens": 12038
+      }
+    },
+    {
+      "forecast_date": "2026-02-01",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:52:17.768179+00:00",
+      "finished_at_utc": "2026-09-23T11:52:34.304607+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "train_model",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "c1306bb99465e9cf3eea57e77fd64ad2ab6a2489fcd0a8b8f01b2234e9841da0",
+      "forecast_sha256": "045a8a1b935c2a7a2f56ff838f5d730311cb7e4be558b539c36e78307f3f9d21",
+      "usage": {
+        "input_tokens": 15188,
+        "output_tokens": 360,
+        "total_tokens": 15548
+      }
+    },
+    {
+      "forecast_date": "2026-02-02",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:52:49.146171+00:00",
+      "finished_at_utc": "2026-09-23T11:53:01.934811+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "23ddec2d7d6dbfcc22d1af7acdc90c0442cf5cf123d7d066f8d61674905342dc",
+      "forecast_sha256": "2ddb84816817ef8522fd9ebd2c184000ff716758b4ffc53e000f391b0c804213",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 285,
+        "total_tokens": 11953
+      }
+    },
+    {
+      "forecast_date": "2026-02-03",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:53:01.961498+00:00",
+      "finished_at_utc": "2026-09-23T11:53:14.998316+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "149387ded0c51796dd59a2cb3abba5aa809c579dd30d8e5dfc548784fc6a9cac",
+      "forecast_sha256": "61eada27fbf382fe5e768955fbdf5df3d058dd9846c645ddc33b3fa894525c26",
+      "usage": {
+        "input_tokens": 12443,
+        "output_tokens": 428,
+        "total_tokens": 12871
+      }
+    },
+    {
+      "forecast_date": "2026-02-04",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:53:15.023937+00:00",
+      "finished_at_utc": "2026-09-23T11:53:26.324249+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "474fa8e7e1852a5c3205fcb317ee23cc9facf2c6bd7c4d553a05343de934df25",
+      "forecast_sha256": "d955dbf1c125949d0bcc85e47c464736af802a65482b23445ff5df4d3a4ff575",
+      "usage": {
+        "input_tokens": 11476,
+        "output_tokens": 301,
+        "total_tokens": 11777
+      }
+    },
+    {
+      "forecast_date": "2026-02-05",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:53:26.348374+00:00",
+      "finished_at_utc": "2026-09-23T11:53:37.512267+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "cbc3f7671266587b448d9547f6a550ce7351febcf62ba302bbd444bf4deb06db",
+      "forecast_sha256": "843df0821da95c2b4c819cc2e14a1459a7bb6ca1e969a42064b380b51dc80a57",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 346,
+        "total_tokens": 12014
+      }
+    },
+    {
+      "forecast_date": "2026-02-06",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:53:37.534854+00:00",
+      "finished_at_utc": "2026-09-23T11:53:48.696281+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "4be46a9c84560a8e97499fc1c92c41bc2685aa64c390e89b6da32ce23fa9db1a",
+      "forecast_sha256": "cd4a1ea196dc647bad1ba7a47a51a7240342a851e372a28bd80b8d5de42db8dc",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 332,
+        "total_tokens": 12000
+      }
+    },
+    {
+      "forecast_date": "2026-02-07",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:53:48.718508+00:00",
+      "finished_at_utc": "2026-09-23T11:54:00.070672+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "e369c0e92fca40b585e2939cc5371e2ba87e3ee0dce08cac9b519b602dcb8d2a",
+      "forecast_sha256": "4c72c95cd14cc252b7b095ea023cd4ceae578823ca9a4881f96bbe3dc577afef",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 282,
+        "total_tokens": 11950
+      }
+    },
+    {
+      "forecast_date": "2026-02-08",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:54:00.096319+00:00",
+      "finished_at_utc": "2026-09-23T11:54:11.244717+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "fd51b626ac952e7ae236931e4d0dfad55fe1c8e4a2a9e088343d34c4391107f5",
+      "forecast_sha256": "4a203407b0d73d83a151038cc947542ee23a860b78c37443bb0986c8451e373e",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 277,
+        "total_tokens": 11945
+      }
+    },
+    {
+      "forecast_date": "2026-02-09",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:54:11.270991+00:00",
+      "finished_at_utc": "2026-09-23T11:54:23.924697+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "b5d0ee8c0477e08565eeef6865e60124d47d65128e506cbc752e90313690dcad",
+      "forecast_sha256": "8a3242313177524afb0bc0e22514a29c71248cd81c6861afac5fede7e06d3434",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 313,
+        "total_tokens": 11981
+      }
+    },
+    {
+      "forecast_date": "2026-02-10",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:54:23.949416+00:00",
+      "finished_at_utc": "2026-09-23T11:54:35.936715+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "91a43637f79497513c52d0dad2ed0434738c86720357a15a2988f9b3afa3bfa5",
+      "forecast_sha256": "e829f86785cd6682f0951e1f4c15a1a48474e284f9ceb2ea6876c589a0c27b0f",
+      "usage": {
+        "input_tokens": 12253,
+        "output_tokens": 343,
+        "total_tokens": 12596
+      }
+    },
+    {
+      "forecast_date": "2026-02-11",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:54:35.960676+00:00",
+      "finished_at_utc": "2026-09-23T11:54:47.940035+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "c03453fb55043846dc250260564fcb230b9bbc69c61edef0f4e94d1232c7a77b",
+      "forecast_sha256": "b516e343b97062333a235fdf0f7c003b9947abfdca9005e31dac3d671d8a8b2e",
+      "usage": {
+        "input_tokens": 12052,
+        "output_tokens": 285,
+        "total_tokens": 12337
+      }
+    },
+    {
+      "forecast_date": "2026-02-12",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:54:47.962977+00:00",
+      "finished_at_utc": "2026-09-23T11:54:58.353063+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "efb20d89567d1925fc4d11604864aea15227bfe7221b77eaf97248080f922880",
+      "forecast_sha256": "0f175ee2c88dcf652e940e44a62a28c00929912e1b8fb679874607a5c4ab83fc",
+      "usage": {
+        "input_tokens": 8865,
+        "output_tokens": 269,
+        "total_tokens": 9134
+      }
+    },
+    {
+      "forecast_date": "2026-02-13",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:54:58.379036+00:00",
+      "finished_at_utc": "2026-09-23T11:55:10.065420+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "d60283aac5b12615354ab089c1fbb0e0a86a8b2df9f0a7a8213baee74cf35325",
+      "forecast_sha256": "d321b8cd342071ab1aeb6d8106fce2e237b00b6ea2e426e5ba4e4eb49a413a61",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 318,
+        "total_tokens": 11986
+      }
+    },
+    {
+      "forecast_date": "2026-02-14",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:55:10.087161+00:00",
+      "finished_at_utc": "2026-09-23T11:55:21.946277+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "64dffd8631180bf8608b63a8aadaee54e8b9ef66e9a26b4c0dfabad39f285a7d",
+      "forecast_sha256": "9642a51712693b8695a28a33af8c6076e3ef808ec1506a92734149389ffab482",
+      "usage": {
+        "input_tokens": 9127,
+        "output_tokens": 357,
+        "total_tokens": 9484
+      }
+    },
+    {
+      "forecast_date": "2026-02-15",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:55:21.957102+00:00",
+      "finished_at_utc": "2026-09-23T11:55:32.202176+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "b5c78a964e61fb50b1e2b70d2be5a92c1ce8ad4d69340d2f90769747fe767204",
+      "forecast_sha256": "b34f28bc378fab6a924f15f5ffa9ffc6b931be504a4181eb0c456b8e1b9f9386",
+      "usage": {
+        "input_tokens": 8808,
+        "output_tokens": 256,
+        "total_tokens": 9064
+      }
+    },
+    {
+      "forecast_date": "2026-02-16",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:55:32.218724+00:00",
+      "finished_at_utc": "2026-09-23T11:55:44.100670+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "655f7375b7df0c3513d54ad88580eead9471b92da72ddb3adff3e957c07044a2",
+      "forecast_sha256": "4df1b5cb548a1e0350a41d83e8e2a997bbaae73d346bd4df54f1a41e2ad7f777",
+      "usage": {
+        "input_tokens": 11720,
+        "output_tokens": 290,
+        "total_tokens": 12010
+      }
+    },
+    {
+      "forecast_date": "2026-02-17",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:55:44.113358+00:00",
+      "finished_at_utc": "2026-09-23T11:55:54.000542+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "8486f76aafb250bd2aaec28d73e4779b52545de7090e8d28308f80d06e524604",
+      "forecast_sha256": "1e7c6684ea2182e63bb588e7575b6b7072355ec3d36a8eff5b14d13b0f7917a0",
+      "usage": {
+        "input_tokens": 8808,
+        "output_tokens": 264,
+        "total_tokens": 9072
+      }
+    },
+    {
+      "forecast_date": "2026-02-18",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:55:54.024083+00:00",
+      "finished_at_utc": "2026-09-23T11:56:06.283315+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "f4b0ff09f130c0bc54f66f5249e6095985fa370d0acf939b56530b362ef75296",
+      "forecast_sha256": "75fb8c50464a24f38dbf9f07cf6e045465bf56017516c46326bfb9c4addf8cd7",
+      "usage": {
+        "input_tokens": 12052,
+        "output_tokens": 286,
+        "total_tokens": 12338
+      }
+    },
+    {
+      "forecast_date": "2026-02-19",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:56:06.308589+00:00",
+      "finished_at_utc": "2026-09-23T11:56:18.385443+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "f5672a0cbe3db0d0e10fc2a52cd0395e39635d211f6d67b96cb17cd03a223136",
+      "forecast_sha256": "41921f324fd183c26e1d67bce60333e46ace8f5a7614796aa42136dd53f7a9e0",
+      "usage": {
+        "input_tokens": 12052,
+        "output_tokens": 288,
+        "total_tokens": 12340
+      }
+    },
+    {
+      "forecast_date": "2026-02-20",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:56:18.407750+00:00",
+      "finished_at_utc": "2026-09-23T11:56:30.055929+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "62f6d9ad41cd7739207e1b94342e9828c1d992bcaf0acac6765908ad2320495a",
+      "forecast_sha256": "082d12a81b4cd7a9ef5753f989191548a0117e0be314930e2540bb7b77acfb69",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 331,
+        "total_tokens": 11999
+      }
+    },
+    {
+      "forecast_date": "2026-02-21",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:56:30.079567+00:00",
+      "finished_at_utc": "2026-09-23T11:56:42.291886+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "560aa49d99aa2398d866152e42c105115ea74bd0cf38e6701e67293bdfa21539",
+      "forecast_sha256": "7ec956e2f1edce95d2cefb7ea6c49d1ebb79beea45bd97cc9de0389816b3394d",
+      "usage": {
+        "input_tokens": 12052,
+        "output_tokens": 276,
+        "total_tokens": 12328
+      }
+    },
+    {
+      "forecast_date": "2026-02-22",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:56:42.314604+00:00",
+      "finished_at_utc": "2026-09-23T11:56:53.873062+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "fb37d7a418761af061b4cad9867fefbea6c2eeb5bc114af396a582c397b4dc18",
+      "forecast_sha256": "9f668a3758482de7e020cd1cecb97aaa0ac2adfc324bbf92bf4e062645abd89e",
+      "usage": {
+        "input_tokens": 12052,
+        "output_tokens": 310,
+        "total_tokens": 12362
+      }
+    },
+    {
+      "forecast_date": "2026-02-23",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:56:53.897710+00:00",
+      "finished_at_utc": "2026-09-23T11:57:05.359999+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "da405d81a761c8e3a1766c1db1ec53ed7457ebe24c7a7cc9ea14915bb2be8268",
+      "forecast_sha256": "41bfb9b55f0662236f342008714539450fb33d317928597ab4e910ef6e0d914f",
+      "usage": {
+        "input_tokens": 12052,
+        "output_tokens": 327,
+        "total_tokens": 12379
+      }
+    },
+    {
+      "forecast_date": "2026-02-24",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:57:05.385165+00:00",
+      "finished_at_utc": "2026-09-23T11:57:15.435745+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "4c2761cb0db53916715915c4fe2dab9fb8ac53d918c0d72a31d0017667a6d677",
+      "forecast_sha256": "e5a037dd57744e3b145e87d9aac9c9dec765a085f0742a4dda24785225dddfa0",
+      "usage": {
+        "input_tokens": 8865,
+        "output_tokens": 294,
+        "total_tokens": 9159
+      }
+    },
+    {
+      "forecast_date": "2026-02-25",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:57:15.460413+00:00",
+      "finished_at_utc": "2026-09-23T11:57:26.245102+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "b36718a7919b40f27ef72d227fa65cc7cc0ec8a923bb089f156b60a8d41ba467",
+      "forecast_sha256": "f141e83f29a2465bf69b2cb79200d76d10ef1fd9d169e9a2eb6845efb8a50047",
+      "usage": {
+        "input_tokens": 11668,
+        "output_tokens": 322,
+        "total_tokens": 11990
+      }
+    },
+    {
+      "forecast_date": "2026-02-26",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:57:26.268791+00:00",
+      "finished_at_utc": "2026-09-23T11:57:39.546694+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "80507f02adc61f3fdd27f2397b4cef76f45c7a9947d01529724c96386b41243b",
+      "forecast_sha256": "88b1de1cd3e50ca8c78983193c35bfea711584867e20bf5714ef4802315aa9aa",
+      "usage": {
+        "input_tokens": 12104,
+        "output_tokens": 311,
+        "total_tokens": 12415
+      }
+    },
+    {
+      "forecast_date": "2026-02-27",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:57:39.571030+00:00",
+      "finished_at_utc": "2026-09-23T11:57:51.819788+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "5dabef8ec267b1da17cad8c6a504642860e305b6c3006640cb2b21dc3e4a1a21",
+      "forecast_sha256": "431fa7ba84dc8ed4007607ceb2ecb2c86a0356b95c3d6ccae8bc6ddbf71ea086",
+      "usage": {
+        "input_tokens": 9081,
+        "output_tokens": 315,
+        "total_tokens": 9396
+      }
+    },
+    {
+      "forecast_date": "2026-02-28",
+      "status": "completed",
+      "started_at_utc": "2026-09-23T11:57:51.845170+00:00",
+      "finished_at_utc": "2026-09-23T11:58:02.988392+00:00",
+      "resolved_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "training_cutoff_inclusive": "2026-01-31",
+      "forecast_hours": 48,
+      "tools": [
+        {
+          "tool": "inspect_station",
+          "status": "ok"
+        },
+        {
+          "tool": "inspect_inputs",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "get_weather",
+          "status": "ok"
+        },
+        {
+          "tool": "calculate_forecast",
+          "status": "ok"
+        },
+        {
+          "tool": "compare_published",
+          "status": "ok"
+        },
+        {
+          "tool": "publish_forecast",
+          "status": "ok"
+        }
+      ],
+      "input_sha256": "07a2644e1c934d5c42de092d8452fd6774aa86038611cbec485641174a7869a7",
+      "forecast_sha256": "d364c0d081cc67040521d3591f90ec6c3b46991127e703803f4655d0317f4436",
+      "usage": {
+        "input_tokens": 8865,
+        "output_tokens": 290,
+        "total_tokens": 9155
+      }
+    }
+  ]
+}

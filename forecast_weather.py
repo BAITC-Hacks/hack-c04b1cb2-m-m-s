@@ -24,7 +24,8 @@ VARIABLES = ("wind_speed_10m", "wind_speed_100m", "temperature_2m")
 
 
 def validate_result(saved: dict, day: dt.date, turbine: str, url: str,
-                    decision: dt.datetime, run: dt.datetime) -> None:
+                    decision: dt.datetime, run: dt.datetime, *,
+                    locations: dict | None = None) -> None:
     """Apply the same chronology and value checks to cache and fresh responses."""
     if not isinstance(saved, dict):
         raise ValueError(f"weather response is not an object: {day} {turbine}")
@@ -32,7 +33,7 @@ def validate_result(saved: dict, day: dt.date, turbine: str, url: str,
             or saved.get("model_run_utc") != run.strftime("%Y-%m-%dT%H:%M:%SZ")
             or saved.get("decision_time_utc") != decision.strftime("%Y-%m-%dT%H:%M:%SZ")):
         raise ValueError(f"weather provenance mismatch: {day} {turbine}")
-    lat, lon = LOCATIONS[turbine]
+    lat, lon = (LOCATIONS if locations is None else locations)[turbine]
     if saved.get("coordinates") != {"latitude": lat, "longitude": lon}:
         raise ValueError(f"weather coordinates mismatch: {day} {turbine}")
     units = saved.get("units") or {}
@@ -63,11 +64,13 @@ def run_for(day: dt.date) -> tuple[dt.datetime, dt.datetime]:
     return decision, decision - dt.timedelta(hours=12)
 
 
-def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool = False) -> dict:
-    if turbine not in LOCATIONS:
+def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool = False,
+             *, locations: dict | None = None) -> dict:
+    selected_locations = LOCATIONS if locations is None else locations
+    if turbine not in selected_locations:
         raise ValueError(f"unknown turbine: {turbine}")
     decision, run = run_for(day)
-    lat, lon = LOCATIONS[turbine]
+    lat, lon = selected_locations[turbine]
     params = {
         "latitude": lat, "longitude": lon,
         "hourly": ",".join(VARIABLES),
@@ -82,7 +85,8 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
     path = cache_dir / f"{day.isoformat()}-{turbine}.json"
     if path.exists() and not refresh:
         saved = json.loads(path.read_text())
-        validate_result(saved, day, turbine, url, decision, run)
+        validate_result(saved, day, turbine, url, decision, run,
+                        locations=selected_locations)
         return saved
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
@@ -123,7 +127,8 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
         "units": {v: (body.get("hourly_units") or {}).get(v) for v in VARIABLES},
         "forecast": records,
     }
-    validate_result(result, day, turbine, url, decision, run)
+    validate_result(result, day, turbine, url, decision, run,
+                    locations=selected_locations)
     if path.exists():
         try:
             if json.loads(path.read_text()) == result:

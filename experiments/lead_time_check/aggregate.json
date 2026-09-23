@@ -1,0 +1,80 @@
+{
+  "validation_issues": [
+    "2026-01-15",
+    "2026-01-31"
+  ],
+  "source_model_cutoff_inclusive": "2025-12-31",
+  "calibration_period": [
+    "2026-01-01",
+    "2026-01-14"
+  ],
+  "calibration_scale_by_turbine": {
+    "turbine-1": 1.1,
+    "turbine-2": 1.1
+  },
+  "csv_local_minus_utc_assumption_hours": 5,
+  "weather_source": "cached Open-Meteo archived ECMWF IFS runs; default competition station profile",
+  "sampling": "Each issue is scored at its own lead time; later issues do not replace earlier issue hours.",
+  "turbines": {
+    "turbine-1": {
+      "lead_0_23": {
+        "issue_count": 17,
+        "paired_issue_target_hours": 397,
+        "baseline": {
+          "mae_normalized_power": 0.164619,
+          "rmse_normalized_power": 0.23573,
+          "bias_prediction_minus_actual": -0.094787
+        },
+        "calibrated": {
+          "mae_normalized_power": 0.150873,
+          "rmse_normalized_power": 0.215003,
+          "bias_prediction_minus_actual": -0.036116
+        }
+      },
+      "lead_24_47": {
+        "issue_count": 16,
+        "paired_issue_target_hours": 373,
+        "baseline": {
+          "mae_normalized_power": 0.188937,
+          "rmse_normalized_power": 0.266853,
+          "bias_prediction_minus_actual": -0.121888
+        },
+        "calibrated": {
+          "mae_normalized_power": 0.173436,
+          "rmse_normalized_power": 0.246063,
+          "bias_prediction_minus_actual": -0.064083
+        }
+      }
+    },
+    "turbine-2": {
+      "lead_0_23": {
+        "issue_count": 17,
+        "paired_issue_target_hours": 397,
+        "baseline": {
+          "mae_normalized_power": 0.169391,
+          "rmse_normalized_power": 0.242231,
+          "bias_prediction_minus_actual": -0.096086
+        },
+        "calibrated": {
+          "mae_normalized_power": 0.155187,
+          "rmse_normalized_power": 0.22129,
+          "bias_prediction_minus_actual": -0.03771
+        }
+      },
+      "lead_24_47": {
+        "issue_count": 16,
+        "paired_issue_target_hours": 373,
+        "baseline": {
+          "mae_normalized_power": 0.194126,
+          "rmse_normalized_power": 0.272156,
+          "bias_prediction_minus_actual": -0.122533
+        },
+        "calibrated": {
+          "mae_normalized_power": 0.177284,
+          "rmse_normalized_power": 0.251097,
+          "bias_prediction_minus_actual": -0.065009
+        }
+      }
+    }
+  }
+}

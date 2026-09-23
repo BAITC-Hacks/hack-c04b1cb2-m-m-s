@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import secrets
+import sys
 import threading
 import time
 import urllib.error
@@ -22,6 +23,7 @@ from power_model import validate_model
 from storage import atomic_write
 from agent_settings import load_agent_environment
 from forecast_agent import DEFAULT_MODEL, agent_available, run_agent
+from station_profile import load_station
 
 ROOT = pathlib.Path(__file__).resolve().parent
 HTML = ROOT / "static" / "index.html"
@@ -36,11 +38,8 @@ AGENT_JOBS: dict[str, dict] = {}
 AGENT_STARTS: collections.deque[float] = collections.deque()
 
 
-def start_agent_job(day: dt.date) -> str:
-    """One live job and at most six starts/hour protect the public demo budget."""
-    load_agent_environment(ROOT)
-    if not agent_available():
-        raise ValueError("AI-агент не настроен на сервере; опубликованные прогнозы доступны.")
+def _reserve_job(*, kind: str, date: str) -> str:
+    """Share the single running slot and six-start hourly budget across both modes."""
     with AGENT_LOCK:
         if any(job["status"] == "running" for job in AGENT_JOBS.values()):
             raise RuntimeError("Агент уже выполняет расчёт. Дождитесь завершения и повторите запуск.")
@@ -52,9 +51,48 @@ def start_agent_job(day: dt.date) -> str:
         job_id = secrets.token_urlsafe(18)
         if len(AGENT_JOBS) >= 20:
             del AGENT_JOBS[next(iter(AGENT_JOBS))]
-        AGENT_JOBS[job_id] = {"job_id": job_id, "date": day.isoformat(),
+        AGENT_JOBS[job_id] = {"job_id": job_id, "date": date, "kind": kind,
                               "status": "running", "events": [], "summary": "", "forecast": None}
         AGENT_STARTS.append(now)
+    return job_id
+
+
+def _campaign_settings() -> tuple[dict | None, pathlib.Path | None, str]:
+    """Resolve server-owned inputs; never return local paths in error text."""
+    try:
+        load_agent_environment(ROOT)
+        if not agent_available():
+            return None, None, "Для автономного прохода нужен серверный ключ OpenAI."
+        configured = os.environ.get("WIND_TRAINING_DIR", "").strip()
+        if not configured:
+            return None, None, "Для автономного прохода задайте WIND_TRAINING_DIR на сервере."
+        station_setting = os.environ.get("WIND_STATION_FILE", "").strip()
+        station_path = pathlib.Path(station_setting) if station_setting else pathlib.Path("stations/example.json")
+        if not station_path.is_absolute():
+            station_path = ROOT / station_path
+        station = load_station(station_path)
+        input_dir = pathlib.Path(configured)
+        if not input_dir.is_absolute():
+            input_dir = ROOT / input_dir
+        if not input_dir.is_dir() or any(not (input_dir / f"{name}.csv").is_file() for name in LOCATIONS):
+            return None, None, "Не найдены CSV обеих турбин в WIND_TRAINING_DIR."
+        return station, input_dir, ""
+    except (OSError, ValueError, TypeError):
+        return None, None, "Профиль станции или каталог CSV недоступен либо некорректен."
+
+
+def run_campaign_job(**kwargs) -> dict:
+    """Late import keeps the published dashboard usable before campaign setup."""
+    from run_campaign import run_campaign
+    return run_campaign(**kwargs)
+
+
+def start_agent_job(day: dt.date) -> str:
+    """Run one daily agent job under the shared public demo budget."""
+    load_agent_environment(ROOT)
+    if not agent_available():
+        raise ValueError("AI-агент не настроен на сервере; опубликованные прогнозы доступны.")
+    job_id = _reserve_job(kind="agent", date=day.isoformat())
 
     def event_received(event: dict) -> None:
         with AGENT_LOCK:
@@ -71,6 +109,82 @@ def start_agent_job(day: dt.date) -> str:
                 AGENT_JOBS[job_id].update(status="failed", summary="Расчёт агента прерван. Предыдущие прогнозы сохранены; повторите запуск.")
 
     threading.Thread(target=work, daemon=True, name=f"forecast-agent-{day}").start()
+    return job_id
+
+
+def start_campaign_job() -> str:
+    station, input_dir, reason = _campaign_settings()
+    if reason:
+        raise ValueError(reason)
+    job_id = _reserve_job(kind="campaign", date="2026-01-31")
+    with AGENT_LOCK:
+        AGENT_JOBS[job_id].update(completed_days=0, total_days=29, station=station)
+    finished_days: set[str] = set()
+
+    def event_received(event: dict) -> None:
+        safe = {key: copy.deepcopy(event[key]) for key in
+                ("step", "tool", "status", "forecast_date") if key in event}
+        detail = event.get("detail", "")
+        if event.get("status") == "error":
+            safe["detail"] = "Шаг завершился ошибкой; проверьте серверный журнал."
+        else:
+            safe["detail"] = str(detail)[:220]
+        result = event.get("result")
+        if isinstance(result, dict):
+            public_fields = {
+                "inspect_inputs": ("model_cutoff", "weather_cache", "loaded_turbines"),
+                "get_weather": ("turbine", "hours", "model_run_utc", "refresh"),
+                "calculate_forecast": ("hours", "mean_normalized_power", "largest_hourly_ramp"),
+                "inspect_forecast": ("start_hour", "end_hour", "hours_inspected"),
+                "compare_published": ("baseline", "mean_delta", "max_absolute_hourly_delta"),
+                "publish_forecast": ("saved", "artifact", "hours", "mean_normalized_power"),
+                "inspect_station": ("training_cutoff", "model_available", "training_configured"),
+                "train_model": ("trained_through_inclusive", "data_quality", "calibration"),
+                "campaign_day": ("completed_days", "total_days"),
+            }.get(event.get("tool"), ())
+            safe["result"] = {key: copy.deepcopy(result[key]) for key in public_fields if key in result}
+            if event.get("tool") == "inspect_station" and isinstance(result.get("station"), dict):
+                safe["result"]["station_name"] = str(result["station"].get("name", ""))[:120]
+        arguments = event.get("arguments")
+        if isinstance(arguments, dict):
+            public_args = {"get_weather": ("turbine", "refresh"),
+                           "inspect_forecast": ("start_hour", "end_hour")}.get(event.get("tool"), ())
+            safe["arguments"] = {key: copy.deepcopy(arguments[key]) for key in public_args if key in arguments}
+        with AGENT_LOCK:
+            AGENT_JOBS[job_id]["events"].append(safe)
+            if (safe.get("tool") == "campaign_day" and safe.get("status") in ("ok", "skipped")
+                    and isinstance(safe.get("forecast_date"), str)):
+                finished_days.add(safe["forecast_date"])
+            AGENT_JOBS[job_id]["completed_days"] = len(finished_days)
+
+    def work() -> None:
+        try:
+            report = run_campaign_job(root=ROOT, station=station, input_dir=input_dir,
+                                      on_event=event_received)
+            forecast = report.get("forecast")
+            completed = (report.get("status") == "completed" and isinstance(forecast, dict)
+                         and isinstance(forecast.get("forecast_date"), str)
+                         and re.fullmatch(DATE_PATTERN, forecast["forecast_date"]) is not None
+                         and isinstance(forecast.get("forecast"), list)
+                         and len(forecast["forecast"]) == 48)
+            if not completed:
+                print(f"Autonomous campaign failed: {report.get('summary', 'no valid result')}",
+                      file=sys.stderr, flush=True)
+            with AGENT_LOCK:
+                # Keep the sanitized live journal; runner reports may contain paths.
+                AGENT_JOBS[job_id].update(status="completed" if completed else "failed",
+                    summary=(str(report.get("summary", ""))[:500] if completed
+                             else "Автономный проход не завершён. Проверьте серверный журнал и повторите запуск."),
+                    station=report.get("station", station),
+                    completed_days=report.get("completed_days", len(finished_days)),
+                    total_days=report.get("total_days", 29),
+                    forecast=forecast if completed else None)
+        except Exception:
+            with AGENT_LOCK:
+                AGENT_JOBS[job_id].update(status="failed", summary=(
+                    "Автономный проход прерван. Сохранённый прогресс не удалён; повторите запуск."))
+
+    threading.Thread(target=work, daemon=True, name="forecast-campaign").start()
     return job_id
 
 
@@ -95,11 +209,14 @@ class Handler(BaseHTTPRequestHandler):
                 available = agent_available()
             except OSError:
                 available = False
+            _station, _input_dir, campaign_reason = _campaign_settings()
             example = ROOT / "agent-examples" / "2026-02-01-report.json"
             self.json_response(200, {"available": available, "provider": "openai",
                 "model": os.environ.get("OPENAI_MODEL", DEFAULT_MODEL),
                 "reason": "" if available else "AI-агент не настроен на сервере; опубликованные прогнозы доступны.",
-                "example_date": "2026-02-01" if example.is_file() else None})
+                "example_date": "2026-02-01" if example.is_file() else None,
+                "campaign_available": not campaign_reason,
+                "campaign_reason": campaign_reason})
             return
         if parsed.path == "/api/agent/example":
             try:
@@ -162,7 +279,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json_response(502, {"error": f"Не удалось рассчитать прогноз: {exc}"})
 
     def do_POST(self) -> None:
-        if self.path != "/api/agent":
+        if self.path not in ("/api/agent", "/api/campaign"):
             self.json_response(404, {"error": "Маршрут не найден"})
             return
         origin = self.headers.get("Origin")
@@ -177,13 +294,20 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 1024:
                 raise ValueError("Некорректный размер запроса.")
             body = json.loads(self.rfile.read(length))
-            if (not isinstance(body, dict) or set(body) != {"date"}
-                    or not isinstance(body["date"], str) or not re.fullmatch(DATE_PATTERN, body["date"])):
-                raise ValueError("Укажите дату 31 января — 28 февраля 2026.")
-            job_id = start_agent_job(dt.date.fromisoformat(body["date"]))
+            if self.path == "/api/campaign":
+                if body != {}:
+                    raise ValueError("Месячный запуск не принимает параметры клиента.")
+                job_id = start_campaign_job()
+            else:
+                if (not isinstance(body, dict) or set(body) != {"date"}
+                        or not isinstance(body["date"], str) or not re.fullmatch(DATE_PATTERN, body["date"])):
+                    raise ValueError("Укажите дату 31 января — 28 февраля 2026.")
+                job_id = start_agent_job(dt.date.fromisoformat(body["date"]))
             self.json_response(202, {"job_id": job_id})
         except (ValueError, OSError):
-            self.json_response(400, {"error": "Проверьте дату и доступность AI-агента на сервере."})
+            self.json_response(400, {"error": ("Автономный проход недоступен: проверьте серверные настройки."
+                                               if self.path == "/api/campaign" else
+                                               "Проверьте дату и доступность AI-агента на сервере.")})
         except RuntimeError as exc:
             self.json_response(429, {"error": str(exc)})
 

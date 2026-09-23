@@ -12,8 +12,9 @@ import urllib.request
 from typing import Callable
 
 from forecast_weather import LOCATIONS, retrieve
-from power_model import validate_model
+from power_model import train, validate_model
 from run_forecast import combine
+from station_profile import validate_station, station_digest
 from storage import atomic_write
 
 API_URL = "https://api.openai.com/v1/responses"
@@ -52,7 +53,11 @@ TOOLS = [
     _tool("compare_published", "Compare calculated forecast with published baseline if available.", {}),
     _tool("publish_forecast", "Save the calculated, current forecast in predictions.", {}),
 ]
-TOOL_PROPERTIES = {item["name"]: item["parameters"]["properties"] for item in TOOLS}
+STATION_TOOLS = [
+    _tool("inspect_station", "Read the configured turbine coordinates, training cutoff and available local history.", {}),
+    _tool("train_model", "Train and validate the station's own power curves from configured local CSV history, without future measurements.", {}),
+]
+TOOL_PROPERTIES = {item["name"]: item["parameters"]["properties"] for item in TOOLS + STATION_TOOLS}
 SYSTEM = (
     "Ты управляешь прогнозом ветропарка через предоставленные инструменты. "
     "Дата и пути уже зафиксированы сервером. Сначала проверь входы, загрузи погоду "
@@ -120,13 +125,17 @@ def _arguments(name: str, raw: object) -> dict:
 
 class _Cycle:
     def __init__(self, day: dt.date, root: pathlib.Path, model_path: pathlib.Path,
-                 cache_dir: pathlib.Path, output_dir: pathlib.Path):
+                 cache_dir: pathlib.Path, output_dir: pathlib.Path, *,
+                 station: dict | None = None, input_dir: pathlib.Path | None = None,
+                 training_cutoff: dt.date | None = None):
         self.day = day
         self.root = root
         self.model_path = model_path
         self.cache_dir = cache_dir
         self.output_dir = output_dir
-        self.cutoff = min(day - dt.timedelta(days=1), MODEL_LAST_DAY)
+        self.cutoff = min(day - dt.timedelta(days=1), training_cutoff or MODEL_LAST_DAY)
+        self.station = validate_station(station) if station is not None else None
+        self.input_dir = input_dir
         self.model: dict | None = None
         self.weather: dict[str, dict] = {}
         self.calculated: dict | None = None
@@ -136,15 +145,50 @@ class _Cycle:
         self.path = output_dir / f"{day}-agent-forecast.json"
 
     def invoke(self, name: str, args: dict) -> dict:
+        if name == "inspect_station":
+            if self.station is None:
+                raise AgentFailure("Профиль станции не задан для этого запуска.")
+            return {"station": self.station, "training_cutoff": self.cutoff.isoformat(),
+                    "model_available": self.model_path.is_file(),
+                    "training_configured": self.input_dir is not None,
+                    "model_family": "empirical wind power curve; trained separately for each turbine"}
+        if name == "train_model":
+            if self.station is None or self.input_dir is None:
+                raise AgentFailure("Для обучения нужны профиль станции и настроенная локальная история CSV.")
+            try:
+                model = train(self.input_dir, self.cutoff)
+                model["station"] = self.station
+                model["station_sha256"] = station_digest(self.station)
+                validate_model(model, self.cutoff)
+                atomic_write(self.model_path, json.dumps(model, ensure_ascii=False, allow_nan=False, indent=2) + "\n")
+            except (OSError, ValueError, KeyError, TypeError):
+                raise AgentFailure("Обучение не выполнено: проверьте два CSV, их колонки и полные часы до даты отсечения.") from None
+            self.model = model
+            self.revision += 1
+            self.calculated = None
+            self.calculated_revision = self.published_revision = -1
+            return {"trained_through_inclusive": self.cutoff.isoformat(),
+                    "station_sha256": model["station_sha256"],
+                    "data_quality": {name: item["data_quality"] for name, item in model["turbines"].items()},
+                    "source_sha256": {name: item["source_sha256"] for name, item in model["turbines"].items()},
+                    "calibration": "none; station-specific curves fitted to local sensor history"}
         if name == "inspect_inputs":
             model_path = self.model_path
             if not model_path.is_file():
-                raise AgentFailure(f"Нет модели на дату отсечения {self.cutoff}; подготовьте файл модели.")
+                raise AgentFailure(f"Нет модели на дату отсечения {self.cutoff}; вызовите train_model, если обучение настроено.")
             try:
                 model = json.loads(model_path.read_text(encoding="utf-8"))
                 validate_model(model, self.cutoff)
+                if self.station is not None and (model.get("station_sha256") != station_digest(self.station)
+                        or model.get("station") != self.station):
+                    raise ValueError("model belongs to another station")
+                if self.input_dir is not None and any(
+                        model["turbines"][name].get("source_sha256") != hashlib.sha256(
+                            (self.input_dir / f"{name}.csv").read_bytes()).hexdigest()
+                        for name in LOCATIONS):
+                    raise ValueError("model belongs to different training history")
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
-                raise AgentFailure("Файл модели повреждён или не подходит для даты прогноза.") from None
+                raise AgentFailure("Модель повреждена или не подходит станции/дате; вызовите train_model, если обучение настроено.") from None
             if self.model is not None and self.model != model:
                 self.revision += 1
                 self.calculated = None
@@ -158,7 +202,7 @@ class _Cycle:
                     cache[turbine] = "absent"
                     continue
                 try:
-                    retrieve(self.day, turbine, self.cache_dir)
+                    retrieve(self.day, turbine, self.cache_dir, **self._weather_options())
                     cache[turbine] = "valid"
                 except (OSError, ValueError, RuntimeError, KeyError, TypeError, urllib.error.URLError):
                     cache[turbine] = "invalid"
@@ -168,7 +212,7 @@ class _Cycle:
             turbine = args["turbine"]
             try:
                 weather = retrieve(self.day, turbine, self.cache_dir,
-                                   refresh=args["refresh"])
+                                   refresh=args["refresh"], **self._weather_options())
             except (OSError, ValueError, RuntimeError, KeyError, TypeError,
                     urllib.error.URLError, TimeoutError):
                 raise AgentFailure(f"Погода {turbine} недоступна или кэш повреждён; попробуйте refresh=true либо проверьте сеть.") from None
@@ -186,6 +230,8 @@ class _Cycle:
                 raise AgentFailure("Сначала загрузите погоду обеих турбин.")
             try:
                 self.calculated = combine(self.day, self.model, self.weather)
+                if self.station is not None:
+                    self.calculated["station"] = self.station
             except (ValueError, KeyError, TypeError, ZeroDivisionError):
                 raise AgentFailure("Не удалось вычислить прогноз: проверьте погодные входы и модель.") from None
             self.calculated_revision = self.revision
@@ -205,6 +251,8 @@ class _Cycle:
                     "analysis": self.calculated["analysis"]}
         if name == "compare_published":
             self._require_current()
+            if self.station is not None:
+                return {"baseline": "absent", "reason": "No published baseline is configured for this station campaign."}
             path = self.root / "results" / f"{self.day}-forecast.json"
             if not path.is_file():
                 return {"baseline": "absent"}
@@ -235,6 +283,9 @@ class _Cycle:
             return {"saved": True, "artifact": self.path.name,
                     "hours": 48, "mean_normalized_power": self.calculated["analysis"]["mean_normalized_power"]}
         raise AgentFailure("Неизвестный инструмент; выберите инструмент из списка.")
+
+    def _weather_options(self) -> dict:
+        return {"locations": self.station["locations"]} if self.station is not None else {}
 
     def _require_current(self) -> None:
         if self.calculated is None or self.calculated_revision != self.revision:
@@ -270,7 +321,10 @@ def run_agent(day: dt.date, *, root: pathlib.Path,
               on_event: Callable[[dict], None] | None = None,
               model_path: pathlib.Path | None = None,
               cache_dir: pathlib.Path | None = None,
-              output_dir: pathlib.Path | None = None) -> dict:
+              output_dir: pathlib.Path | None = None,
+              station: dict | None = None,
+              input_dir: pathlib.Path | None = None,
+              training_cutoff: dt.date | None = None) -> dict:
     """Run a fixed-date bounded forecast cycle; expected failures are returned as data."""
     model_name = os.environ.get("OPENAI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
     report = {"status": "failed", "provider": "openai", "model": model_name,
@@ -298,21 +352,44 @@ def run_agent(day: dt.date, *, root: pathlib.Path,
     if not key:
         report["summary"] = "Не задан OPENAI_API_KEY; добавьте ключ в окружение и повторите запуск."
         return report
+    if training_cutoff is not None and (not isinstance(training_cutoff, dt.date)
+            or isinstance(training_cutoff, dt.datetime) or training_cutoff > MODEL_LAST_DAY):
+        report["summary"] = "Дата обучения должна быть не позднее 31.01.2026."
+        return report
+    try:
+        station = validate_station(station) if station is not None else None
+    except (ValueError, TypeError, KeyError):
+        report["summary"] = "Некорректный профиль станции."
+        return report
     root = pathlib.Path(root)
-    cutoff = min(day - dt.timedelta(days=1), MODEL_LAST_DAY)
+    cutoff = min(day - dt.timedelta(days=1), training_cutoff or MODEL_LAST_DAY)
+    workspace = (root / "predictions" / "stations" / f"{station['id']}-{station_digest(station)[:12]}"
+                 if station is not None else root)
     cycle = _Cycle(day, root,
-                   pathlib.Path(model_path) if model_path is not None else root / "models" / f"power-curve-{cutoff}.json",
-                   pathlib.Path(cache_dir) if cache_dir is not None else root / "weather-cache",
-                   pathlib.Path(output_dir) if output_dir is not None else root / "predictions")
+                   pathlib.Path(model_path) if model_path is not None else workspace / "models" / f"power-curve-{cutoff}.json",
+                   pathlib.Path(cache_dir) if cache_dir is not None else workspace / "weather-cache",
+                   pathlib.Path(output_dir) if output_dir is not None else (workspace if station is not None else root / "predictions"),
+                   station=station, input_dir=pathlib.Path(input_dir) if input_dir is not None else None,
+                   training_cutoff=training_cutoff)
+    max_turns, max_calls = (12, 16) if station is not None else (MAX_TURNS, MAX_CALLS)
+    instructions = SYSTEM
+    selected_tools = TOOLS
+    if station is not None:
+        report["station"] = station
+        selected_tools = TOOLS + STATION_TOOLS
+        instructions += (" В этом запуске сначала вызови inspect_station. Координаты заданы оператором и проверены сервером. "
+                         "Если модели нет, обучи её через train_model; если есть — проверь через inspect_inputs. "
+                         "При несовместимой модели можно обучить новую, если локальная история настроена. "
+                         "Исходные CSV не передаются тебе. Не утверждай, что новая модель откалибрована или её точность доказана.")
     conversation: list[dict] = [{"role": "user", "content": f"Подготовь и опубликуй прогноз на {day.isoformat()}."}]
     calls = 0
     try:
-        for turn in range(MAX_TURNS):
-            remaining = MAX_TURNS - turn
+        for turn in range(max_turns):
+            remaining = max_turns - turn
             payload = {"model": model_name,
-                       "instructions": SYSTEM + f" Осталось ответов модели: {remaining}. Необязательные проверки пропускай, если нужно успеть опубликовать.",
+                       "instructions": instructions + f" Осталось ответов модели: {remaining}. Необязательные проверки пропускай, если нужно успеть опубликовать.",
                        "input": conversation,
-                       "tools": TOOLS, "parallel_tool_calls": False, "store": False,
+                       "tools": selected_tools, "parallel_tool_calls": False, "store": False,
                        "reasoning": {"effort": "low"},
                        "max_output_tokens": 1800}
             response = _response(payload, key)
@@ -358,8 +435,8 @@ def run_agent(day: dt.date, *, root: pathlib.Path,
                 raise AgentFailure("Модель завершила работу до публикации прогноза.")
             for call in tool_calls:
                 calls += 1
-                if calls > MAX_CALLS:
-                    raise AgentFailure("Достигнут лимит 12 вызовов инструментов; повторите запуск.")
+                if calls > max_calls:
+                    raise AgentFailure(f"Достигнут лимит {max_calls} вызовов инструментов; повторите запуск.")
                 name = call.get("name", "unknown")
                 try:
                     if not isinstance(call.get("call_id"), str):
@@ -374,7 +451,7 @@ def run_agent(day: dt.date, *, root: pathlib.Path,
                     tool_result = {"ok": False, "error": str(exc)}
                 conversation.append({"type": "function_call_output", "call_id": call.get("call_id", ""),
                                      "output": json.dumps(tool_result, ensure_ascii=False, allow_nan=False)})
-        raise AgentFailure("Достигнут лимит 8 ответов модели; повторите запуск.")
+        raise AgentFailure(f"Достигнут лимит {max_turns} ответов модели; повторите запуск.")
     except AgentFailure as exc:
         report["summary"] = str(exc)
     except (OSError, ValueError, TypeError, KeyError):
