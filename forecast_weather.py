@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import pathlib
 import sys
 import urllib.error
@@ -17,6 +18,40 @@ LOCATIONS = {
 }
 API = "https://single-runs-api.open-meteo.com/v1/forecast"
 VARIABLES = ("wind_speed_10m", "wind_speed_100m", "temperature_2m")
+
+
+def validate_result(saved: dict, day: dt.date, turbine: str, url: str,
+                    decision: dt.datetime, run: dt.datetime) -> None:
+    """Apply the same chronology and value checks to cache and fresh responses."""
+    if not isinstance(saved, dict):
+        raise ValueError(f"weather response is not an object: {day} {turbine}")
+    if (saved.get("request_url") != url or saved.get("turbine") != turbine
+            or saved.get("model_run_utc") != run.strftime("%Y-%m-%dT%H:%M:%SZ")
+            or saved.get("decision_time_utc") != decision.strftime("%Y-%m-%dT%H:%M:%SZ")):
+        raise ValueError(f"weather provenance mismatch: {day} {turbine}")
+    lat, lon = LOCATIONS[turbine]
+    if saved.get("coordinates") != {"latitude": lat, "longitude": lon}:
+        raise ValueError(f"weather coordinates mismatch: {day} {turbine}")
+    units = saved.get("units") or {}
+    if not isinstance(units, dict):
+        raise ValueError(f"weather units are invalid: {day} {turbine}")
+    if any(units.get(name) not in ("m/s", "ms") for name in ("wind_speed_10m", "wind_speed_100m")):
+        raise ValueError(f"weather wind speed must be m/s: {day} {turbine}")
+    records = saved.get("forecast")
+    if not isinstance(records, list) or len(records) != 48:
+        raise ValueError(f"weather must contain 48 hours: {day} {turbine}")
+    for hour, row in enumerate(records):
+        expected = decision.replace(tzinfo=None) + dt.timedelta(hours=hour)
+        try:
+            stamp = dt.datetime.fromisoformat(row["time_utc"].replace("Z", "+00:00"))
+            if stamp.tzinfo is not None:
+                stamp = stamp.astimezone(UTC).replace(tzinfo=None)
+            values = [row[name] for name in VARIABLES]
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"invalid weather hour {hour}: {day} {turbine}") from exc
+        if stamp != expected or any(not isinstance(value, (int, float)) or not math.isfinite(value)
+                                    for value in values) or any(value < 0 for value in values[:2]):
+            raise ValueError(f"invalid weather hour {hour}: {day} {turbine}")
 
 
 def run_for(day: dt.date) -> tuple[dt.datetime, dt.datetime]:
@@ -44,11 +79,12 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
     path = cache_dir / f"{day.isoformat()}-{turbine}.json"
     if path.exists() and not refresh:
         saved = json.loads(path.read_text())
-        if saved.get("request_url") != url:
-            raise ValueError(f"cached request differs: {path}")
+        validate_result(saved, day, turbine, url, decision, run)
         return saved
     with urllib.request.urlopen(url, timeout=30) as response:
         body = json.load(response)
+    if not isinstance(body, dict):
+        raise ValueError("weather API response is not an object")
     if body.get("error"):
         raise RuntimeError(body.get("reason", "weather API error"))
     hourly = body.get("hourly") or {}
@@ -81,6 +117,7 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
         "units": {v: (body.get("hourly_units") or {}).get(v) for v in VARIABLES},
         "forecast": records,
     }
+    validate_result(result, day, turbine, url, decision, run)
     path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
     return result
 

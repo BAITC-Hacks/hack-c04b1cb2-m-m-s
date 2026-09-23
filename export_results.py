@@ -9,6 +9,7 @@ import argparse
 import csv
 import datetime as dt
 import json
+import math
 import pathlib
 
 
@@ -20,21 +21,32 @@ def export(input_dir: pathlib.Path, output: pathlib.Path) -> int:
         if payload["forecast_date"] != day.isoformat():
             raise ValueError(f"forecast date mismatch: {day}")
         decision = dt.datetime.fromisoformat(payload["decision_time_utc"].replace("Z", "+00:00"))
+        if decision != dt.datetime.combine(day, dt.time(6), tzinfo=dt.timezone.utc):
+            raise ValueError(f"unexpected decision time: {day}")
         run_times = payload["weather_run_utc"]
         if dt.date.fromisoformat(payload["training_cutoff_inclusive"]) >= day:
             raise ValueError(f"future training data: {day}")
-        if any(dt.datetime.fromisoformat(run.replace("Z", "+00:00")) >= decision
+        if any(decision - dt.datetime.fromisoformat(run.replace("Z", "+00:00"))
+               < dt.timedelta(hours=6)
                for run in run_times.values()):
-            raise ValueError(f"weather run not earlier than decision: {day}")
+            raise ValueError(f"weather run too close to decision: {day}")
         rows = payload["forecast"]
         if len(rows) != 48:
             raise ValueError(f"not 48 hours: {day}")
-        for row in rows:
+        for hour, row in enumerate(rows):
             moment = dt.datetime.fromisoformat(row["time_utc"].replace("Z", "+00:00"))
             if moment.tzinfo is None:
                 moment = moment.replace(tzinfo=dt.timezone.utc)
-            if moment < decision:
-                raise ValueError(f"forecast precedes decision: {day}")
+            if moment != decision + dt.timedelta(hours=hour):
+                raise ValueError(f"forecast hour gap or overlap: {day}, hour {hour}")
+            a = row["turbine_1_normalized_power"]
+            b = row["turbine_2_normalized_power"]
+            farm = row["farm_equal_capacity_mean_normalized_power"]
+            if not all(isinstance(value, (int, float)) and math.isfinite(value)
+                       and 0 <= value <= 1 for value in (a, b, farm)):
+                raise ValueError(f"invalid normalized output: {day}, hour {hour}")
+            if abs(farm - (a + b) / 2) > 0.000001:
+                raise ValueError(f"farm output does not match turbine mean: {day}, hour {hour}")
             if moment.month != 2:
                 continue
             entry = {
