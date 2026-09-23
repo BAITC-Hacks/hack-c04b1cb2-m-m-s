@@ -16,7 +16,7 @@ LOCATIONS = {
     "turbine-2": (43.643198, 78.538828),
 }
 API = "https://single-runs-api.open-meteo.com/v1/forecast"
-VARIABLES = ("wind_speed_10m", "temperature_2m")
+VARIABLES = ("wind_speed_10m", "wind_speed_100m", "temperature_2m")
 
 
 def run_for(day: dt.date) -> tuple[dt.datetime, dt.datetime]:
@@ -25,7 +25,7 @@ def run_for(day: dt.date) -> tuple[dt.datetime, dt.datetime]:
     return decision, decision - dt.timedelta(hours=12)
 
 
-def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path) -> dict:
+def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool = False) -> dict:
     if turbine not in LOCATIONS:
         raise ValueError(f"unknown turbine: {turbine}")
     decision, run = run_for(day)
@@ -42,7 +42,7 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path) -> dict:
     url = API + "?" + urllib.parse.urlencode(params)
     cache_dir.mkdir(parents=True, exist_ok=True)
     path = cache_dir / f"{day.isoformat()}-{turbine}.json"
-    if path.exists():
+    if path.exists() and not refresh:
         saved = json.loads(path.read_text())
         if saved.get("request_url") != url:
             raise ValueError(f"cached request differs: {path}")
@@ -88,14 +88,21 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("date", help="decision date, YYYY-MM-DD, UTC")
+    parser.add_argument("--days", type=int, default=1, help="number of daily forecasts")
     parser.add_argument("--cache-dir", type=pathlib.Path, default=pathlib.Path("weather-cache"))
+    parser.add_argument("--refresh", action="store_true", help="fetch again when inputs are updated")
     args = parser.parse_args()
     try:
         day = dt.date.fromisoformat(args.date)
-        for turbine in LOCATIONS:
-            result = retrieve(day, turbine, args.cache_dir)
-            print(f"{turbine}: {len(result['forecast'])} hours; run {result['model_run_utc']}; "
-                  f"saved {args.cache_dir / (args.date + '-' + turbine + '.json')}")
+        if not 1 <= args.days <= 366:
+            raise ValueError("--days must be between 1 and 366")
+        for offset in range(args.days):
+            current = day + dt.timedelta(days=offset)
+            for turbine in LOCATIONS:
+                result = retrieve(current, turbine, args.cache_dir, refresh=args.refresh)
+                print(f"{current} {turbine}: {len(result['forecast'])} hours; "
+                      f"run {result['model_run_utc']}; "
+                      f"saved {args.cache_dir / (current.isoformat() + '-' + turbine + '.json')}")
     except (ValueError, RuntimeError, urllib.error.URLError, TimeoutError) as exc:
         print(f"forecast error: {exc}", file=sys.stderr)
         return 1

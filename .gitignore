@@ -1,0 +1,7 @@
+weather-cache/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+model.json
+predictions/
