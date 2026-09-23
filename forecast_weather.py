@@ -5,8 +5,10 @@ import argparse
 import datetime as dt
 import json
 import math
+import os
 import pathlib
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -118,7 +120,22 @@ def retrieve(day: dt.date, turbine: str, cache_dir: pathlib.Path, refresh: bool 
         "forecast": records,
     }
     validate_result(result, day, turbine, url, decision, run)
-    path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+    if path.exists():
+        try:
+            if json.loads(path.read_text()) == result:
+                return result
+        except (OSError, ValueError):
+            pass  # A damaged cache is replaced only after fresh data validates.
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=cache_dir,
+                                         prefix=f".{path.name}.", delete=False) as stream:
+            temporary = pathlib.Path(stream.name)
+            stream.write(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return result
 
 

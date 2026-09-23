@@ -153,6 +153,12 @@ def predict(model: dict, weather: dict) -> dict:
     if not isinstance(rows, list) or len(rows) not in (24, 48):
         raise ValueError("weather forecast must contain 24 or 48 hourly records")
     curve = model["turbines"][turbine]["curve"]
+    width, values = curve["bin_width_ms"], curve["values"]
+    if (not isinstance(width, (int, float)) or not math.isfinite(width) or width <= 0
+            or not isinstance(values, list) or not values
+            or any(not isinstance(value, (int, float)) or not math.isfinite(value)
+                   or not 0 <= value <= 1 for value in values)):
+        raise ValueError(f"invalid power curve: {turbine}")
     wind_scale = model["turbines"][turbine].get("forecast_wind_scale", 1.0)
     if not math.isfinite(wind_scale) or not 0.5 <= wind_scale <= 1.5:
         raise ValueError("invalid forecast wind calibration")

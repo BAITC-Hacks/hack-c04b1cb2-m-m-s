@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Прогноз выработки ветропарка</title>
+  <title>ВЭС · Прогноз, который можно проверить</title>
+  <link rel="icon" href="data:,">
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0d1726; color: #e9f1fa; }
     * { box-sizing: border-box; }
@@ -12,6 +13,9 @@
     h1 { margin: 8px 0 10px; font-size: clamp(27px, 4vw, 42px); letter-spacing: -.03em; }
     h2 { font-size: 19px; margin: 0 0 18px; }
     p { color: #aac0d6; line-height: 1.55; }
+    a { color: #6dd7ce; text-underline-offset: 3px; }
+    :focus-visible { outline: 3px solid #f8bf74; outline-offset: 4px; }
+    .intro { max-width: 780px; }
     .eyebrow { color: #6dd7ce; font-weight: 700; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }
     .panel { background: #142237; border: 1px solid #294159; border-radius: 18px; padding: 22px; margin-top: 22px; }
     .controls { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
@@ -32,6 +36,12 @@
     .metric { background: #0d1b2c; border-radius: 12px; padding: 17px; }
     .metric small { display: block; color: #aac0d6; }
     .metric strong { display: block; font-size: 29px; margin-top: 5px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .section-heading p { margin: 0 0 18px; }
+    .passport { margin: 22px 0 0; padding-top: 20px; border-top: 1px solid #294159; }
+    summary { cursor: pointer; font-weight: 650; color: #c7d8e9; }
+    .passport .meta { margin-top: 16px; margin-bottom: 12px; }
+    .passport p { margin: 10px 0 0; }
     .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 18px 0 5px; font-size: 13px; color: #bfd1e2; }
     .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px; }
     svg { display: block; width: 100%; height: auto; margin-top: 10px; }
@@ -45,48 +55,64 @@
     tr:hover td { background: #1a3049; }
     .note { font-size: 13px; }
     [hidden] { display: none !important; }
-    @media (max-width: 650px) { .metrics { grid-template-columns: 1fr; } .panel { padding: 16px; } }
+    @media (max-width: 650px) { main { padding: 24px 14px 40px; } .metrics { grid-template-columns: 1fr; gap: 8px; } .metric { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; } .metric strong { margin: 0; font-size: 25px; } .panel { padding: 16px; } .controls > label, .controls > button { width: 100%; } .chip { border-radius: 10px; overflow-wrap: anywhere; } }
   </style>
 </head>
 <body>
 <main>
   <div class="eyebrow">Ветропарк · январь–февраль 2026</div>
-  <h1>Почасовой прогноз выработки</h1>
-  <p>48 часов для двух турбин на основе архивного прогноза погоды ECMWF. Опубликованные результаты открываются без интернета; повторный расчёт заново обращается к погодному архиву. Значения нормированы от 0 до 1 и не являются энергией в МВт·ч.</p>
+  <h1>Прогноз, который можно проверить</h1>
+  <p class="intro">Почасовая мощность двух турбин на 48 часов. Каждый прогноз связан с архивным выпуском погоды и границей обучения модели. Выберите историческую дату и проследите путь от исходных данных до результата.</p>
   <section class="panel">
     <div class="controls">
       <label>Дата расчёта (UTC)<input id="date" type="date" min="2026-01-31" max="2026-02-28" value="2026-02-01" required></label>
-      <button id="run" type="button">Показать прогноз</button>
+      <button id="run" type="button">Опубликованный прогноз</button>
       <button id="refresh" type="button" class="secondary">Пересчитать из архива</button>
       <a class="download" href="/download/february-hourly.csv" download="february-hourly.csv">Скачать весь февраль CSV</a>
     </div>
-    <p id="status" class="status" role="status" aria-live="polite">Выберите дату и откройте сохранённый прогноз.</p>
+    <p id="status" class="status" role="status" aria-live="polite">Открываем сохранённый прогноз…</p>
+    <p class="note">Обычный просмотр и CSV открывают опубликованный снимок. «Пересчитать» получает архив заново. Результаты фонового наблюдения сохраняются отдельно и здесь автоматически не подменяются.</p>
   </section>
   <section class="panel" id="results" hidden>
-    <h2>Результат</h2>
-    <div class="meta"><span class="chip" id="decision"></span><span class="chip" id="weather-run"></span><span class="chip" id="training"></span><span class="chip" id="calibration"></span></div>
+    <div class="section-heading"><h2>Прогноз мощности</h2><p class="note" id="horizon"></p></div>
+    <p class="note">Нормализованная мощность, шкала 0–1. Значение 0,5 — половина нормировочной шкалы; это не МВт и не МВт·ч.</p>
     <div class="metrics">
       <div class="metric"><small>Среднее по ветропарку</small><strong id="mean"></strong></div>
       <div class="metric"><small>Максимум за 48 часов</small><strong id="maximum"></strong></div>
       <div class="metric"><small>Наибольший часовой скачок</small><strong id="ramp"></strong></div>
     </div>
-    <div class="legend"><span><i class="dot" style="background:#6dd7ce"></i>Турбина 1</span><span><i class="dot" style="background:#f8bf74"></i>Турбина 2</span><span><i class="dot" style="background:#b6a1fa"></i>Среднее</span></div>
+    <div class="legend"><span><i class="dot" style="background:#6dd7ce"></i>Турбина 1</span><span><i class="dot" style="background:#f8bf74"></i>Турбина 2</span><span><i class="dot" style="background:#b6a1fa"></i>Ветропарк · среднее</span></div>
     <svg id="chart" viewBox="0 0 900 300" role="img" aria-label="График нормированной мощности за 48 часов"></svg>
     <p class="note" id="analysis"></p>
+    <details class="passport" open>
+      <summary>Происхождение прогноза</summary>
+      <div class="meta"><span class="chip" id="training"></span><span class="chip" id="weather-run"></span><span class="chip" id="decision"></span><span class="chip" id="calibration"></span></div>
+      <p class="note" id="checks"></p>
+      <p class="note" id="weather-links"></p>
+      <p class="note">Для решения используется погодный выпуск за 12 часов до него. Это запас относительно типичной задержки публикации; точное время появления каждого выпуска в архиве не подтверждено.</p>
+    </details>
   </section>
   <section class="panel" id="table-panel" hidden>
     <h2>Почасовые значения</h2>
     <div class="table-wrap"><table><thead><tr><th>Время UTC</th><th>Турбина 1</th><th>Турбина 2</th><th>Среднее</th></tr></thead><tbody id="rows"></tbody></table></div>
   </section>
-  <p class="note">Среднее рассчитано при допущении одинаковой мощности турбин. Прогноз погоды берётся из исторического запуска, предшествующего времени расчёта.</p>
+  <p class="note">29 ежедневных прогнозов · 672 часа февраля в CSV. Среднее рассчитано при допущении одинаковой мощности турбин. Фактические измерения февраля не предоставлены, поэтому февральская ошибка пока неизвестна.</p>
+  <p class="note">Погодные данные: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> / ECMWF, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Выбрано 48-часовое окно, ветер откалиброван и преобразован моделью в прогноз мощности.</p>
 </main>
 <script>
   const $ = id => document.getElementById(id);
   const keys = ['turbine_1_normalized_power', 'turbine_2_normalized_power', 'farm_equal_capacity_mean_normalized_power'];
   const colors = ['#6dd7ce', '#f8bf74', '#b6a1fa'];
-  const number = value => Number(value).toFixed(3);
+  const number = value => Number(value).toFixed(3).replace('.', ',');
+  const stamp = value => value.slice(0, 16).replace('T', ' ');
+  const shortStamp = value => `${value.slice(8, 10)}.${value.slice(5, 7)} ${value.slice(11, 16)}`;
+  let shownDate = null;
+  let shownRows = null;
   function renderChart(rows) {
     const svg = $('chart');
+    const width = Math.max(280, svg.clientWidth);
+    const plotWidth = width - 65;
+    svg.setAttribute('viewBox', `0 0 ${width} 300`);
     const ns = 'http://www.w3.org/2000/svg';
     svg.replaceChildren();
     function element(tag, attrs, value) {
@@ -97,33 +123,48 @@
     }
     for (let n = 0; n <= 4; n++) {
       const y = 260 - n * 55;
-      element('line', {x1: 50, y1: y, x2: 880, y2: y, class: 'gridline'});
-      element('text', {x: 5, y: y + 4, class: 'axis'}, (n / 4).toFixed(2));
+      element('line', {x1: 45, y1: y, x2: width - 20, y2: y, class: 'gridline'});
+      element('text', {x: 0, y: y + 4, class: 'axis'}, (n / 4).toFixed(2).replace('.', ','));
     }
-    for (let h = 0; h < 48; h += 12) {
-      const x = 50 + h * 830 / 47;
-      element('text', {x, y: 285, class: 'axis', 'text-anchor': h ? 'middle' : 'start'}, `${h} ч`);
+    for (const h of width < 600 ? [0, 24, 47] : [0, 12, 24, 36, 47]) {
+      const x = 45 + h * plotWidth / 47;
+      element('text', {x, y: 285, class: 'axis', 'text-anchor': h === 0 ? 'start' : h === 47 ? 'end' : 'middle'}, shortStamp(rows[h].time_utc));
     }
     keys.forEach((key, index) => {
-      const points = rows.map((row, i) => `${50 + i * 830 / 47},${260 - row[key] * 220}`).join(' ');
-      element('polyline', {points, fill: 'none', stroke: colors[index], 'stroke-width': index === 2 ? 3 : 2, 'stroke-linejoin': 'round'});
+      const points = rows.map((row, i) => `${45 + i * plotWidth / 47},${260 - row[key] * 220}`).join(' ');
+      element('polyline', {points, fill: 'none', stroke: colors[index], 'stroke-width': index === 2 ? 3 : 2, 'stroke-dasharray': index === 2 ? '7 4' : 'none', 'stroke-linejoin': 'round'});
     });
   }
   function render(data) {
-    $('decision').textContent = `Расчёт: ${data.decision_time_utc}`;
-    $('weather-run').textContent = `Погодный запуск: ${[...new Set(Object.values(data.weather_run_utc))].join(' · ')}`;
+    shownDate = data.forecast_date;
+    $('horizon').textContent = `${shortStamp(data.forecast[0].time_utc)} — ${shortStamp(data.forecast[47].time_utc)} UTC`;
+    $('decision').textContent = `Решение: ${stamp(data.decision_time_utc)} UTC`;
+    $('weather-run').textContent = `Погодный выпуск: ${[...new Set(Object.values(data.weather_run_utc))].map(stamp).join(' · ')} UTC`;
     $('training').textContent = `Обучено по ${data.training_cutoff_inclusive}`;
-    $('calibration').textContent = `Калибровка ветра: ${Object.values(data.forecast_wind_scale).map(value => `×${value.toFixed(2)}`).join(' · ')}`;
+    $('calibration').textContent = `Калибровка ветра: ${Object.values(data.forecast_wind_scale).map(value => `×${value.toFixed(2).replace('.', ',')}`).join(' · ')}`;
     $('mean').textContent = number(data.analysis.mean_normalized_power);
     $('maximum').textContent = number(data.analysis.maximum_normalized_power);
     $('ramp').textContent = number(data.analysis.largest_hourly_ramp);
     const signals = data.analysis.signals.length ? data.analysis.signals.join('; ') : 'Пороговых сигналов нет';
-    $('analysis').textContent = `Минимум ${number(data.analysis.minimum_normalized_power)}, максимум ${number(data.analysis.maximum_normalized_power)}. Первые 24 ч: ${number(data.analysis.first_24h_mean)}, вторые 24 ч: ${number(data.analysis.second_24h_mean)}. ${signals}. Проверено: ${data.analysis.checks.join('; ')}.`;
-    renderChart(data.forecast);
+    $('analysis').textContent = `Среднее за первые 24 ч: ${number(data.analysis.first_24h_mean)}, за следующие 24 ч: ${number(data.analysis.second_24h_mean)}. ${signals}.`;
+    $('checks').textContent = `Проверки расчёта: ${data.analysis.checks.join('; ')}. Эти проверки подтверждают целостность результата, а не точность прогноза.`;
+    $('weather-links').replaceChildren(document.createTextNode('Архивные погодные входы: '));
+    Object.entries(data.weather_request_urls).forEach(([name, url], i) => {
+      if (i) $('weather-links').append(document.createTextNode(' · '));
+      const link = document.createElement('a');
+      link.href = url;
+      link.textContent = name === 'turbine-1' ? 'Турбина 1' : 'Турбина 2';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      $('weather-links').append(link);
+    });
+    shownRows = data.forecast;
+    $('results').hidden = false;
+    renderChart(shownRows);
     const fragment = document.createDocumentFragment();
     for (const row of data.forecast) {
       const tr = document.createElement('tr');
-      for (const value of [row.time_utc, ...keys.map(key => number(row[key]))]) {
+      for (const value of [stamp(row.time_utc), ...keys.map(key => number(row[key]))]) {
         const td = document.createElement('td');
         td.textContent = value;
         tr.appendChild(td);
@@ -135,30 +176,40 @@
     $('table-panel').hidden = false;
   }
   async function loadForecast(refresh) {
+    if (!$('date').reportValidity()) return;
     const date = $('date').value;
     const status = $('status');
     status.classList.remove('error');
-    $('results').hidden = true;
-    $('table-panel').hidden = true;
+    const keepResult = shownDate === date;
+    $('results').hidden = !keepResult;
+    $('table-panel').hidden = !keepResult;
+    $('results').setAttribute('aria-busy', 'true');
     $('run').disabled = true;
     $('refresh').disabled = true;
+    $('date').disabled = true;
     status.textContent = refresh ? 'Обновляем архив погоды и пересчитываем прогноз…' : 'Открываем сохранённый прогноз…';
     try {
       const response = await fetch(`/api/forecast?date=${encodeURIComponent(date)}&refresh=${refresh ? 1 : 0}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Ошибка расчёта');
       render(data);
-      status.textContent = `${refresh ? 'Пересчитано' : 'Опубликованный результат'}: ${data.forecast.length} почасовых значений для обеих турбин.`;
+      status.textContent = `${refresh ? 'Пересчитано из архива' : 'Опубликованный снимок'} на ${date}: ${data.forecast.length} часов для обеих турбин. Все времена — UTC.`;
     } catch (error) {
-      status.textContent = error.message;
+      status.textContent = `${error.message}${keepResult ? ' Ниже сохранён предыдущий результат; обновление не выполнено.' : ''}`;
       status.classList.add('error');
     } finally {
       $('run').disabled = false;
       $('refresh').disabled = false;
+      $('date').disabled = false;
+      $('results').setAttribute('aria-busy', 'false');
     }
   }
   $('run').addEventListener('click', () => loadForecast(false));
   $('refresh').addEventListener('click', () => loadForecast(true));
+  new ResizeObserver(() => {
+    if (shownRows && !$('results').hidden) renderChart(shownRows);
+  }).observe($('chart'));
+  loadForecast(false);
 </script>
 </body>
 </html>

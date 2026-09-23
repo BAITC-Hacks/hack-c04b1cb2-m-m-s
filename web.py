@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import argparse
 import json
 import pathlib
 import re
@@ -11,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from forecast_weather import LOCATIONS, retrieve
 from run_forecast import combine
+from watch_forecast import atomic_write
 
 ROOT = pathlib.Path(__file__).resolve().parent
 HTML = ROOT / "static" / "index.html"
@@ -76,7 +78,7 @@ class Handler(BaseHTTPRequestHandler):
             weather = {name: retrieve(day, name, CACHE, refresh=True) for name in LOCATIONS}
             output = combine(day, model, weather)
             RECALCULATED.mkdir(exist_ok=True)
-            (RECALCULATED / f"{day}-forecast.json").write_text(
+            atomic_write(RECALCULATED / f"{day}-forecast.json",
                 json.dumps(output, ensure_ascii=False, indent=2) + "\n")
             output["delivery_mode"] = "recalculated"
             self.json_response(200, output)
@@ -85,17 +87,27 @@ class Handler(BaseHTTPRequestHandler):
             self.json_response(502, {"error": f"Не удалось рассчитать прогноз: {exc}"})
 
 
-def main() -> None:
-    address = ("127.0.0.1", 8000)
-    server = ThreadingHTTPServer(address, Handler)
-    print(f"Wind forecast dashboard: http://{address[0]}:{address[1]}/", flush=True)
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=8000,
+                        help="local port (default: 8000; 0 selects a free port)")
+    args = parser.parse_args()
+    if not 0 <= args.port <= 65535:
+        parser.error("--port must be between 0 and 65535")
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    except OSError as exc:
+        parser.exit(1, f"Не удалось запустить сервер: {exc}. "
+                       "Выберите свободный порт: python3 web.py --port 8001\n")
+    print(f"Wind forecast dashboard: http://127.0.0.1:{server.server_port}/", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
